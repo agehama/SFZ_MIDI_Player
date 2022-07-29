@@ -41,9 +41,9 @@ public:
 
 	RectF getHorizontalRect(int octaveIndex, int noteIndex, bool isWhiteKey) const;
 
-	void drawVertical2(const PianoRoll& pianoroll, const MidiData& midiData) const;
+	void drawVertical(const PianoRoll& pianoroll, const Optional<MidiData>& midiData) const;
 
-	void drawHorizontal(const PianoRoll& pianoroll, const MidiData& midiData) const;
+	void drawHorizontal(const PianoRoll& pianoroll, const Optional<MidiData>& midiData) const;
 
 	const NoteEvent& addEvent(uint8 key, uint8 velocity, int64 pressTimePos, int64 releaseTimePos);
 

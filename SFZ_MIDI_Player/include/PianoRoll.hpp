@@ -14,9 +14,9 @@ public:
 		m_measureWidth(measureWidth)
 	{}
 
-	void drawVertical(int keyMin, int keyMax, const MidiData& midiData) const;
+	void drawVertical(int keyMin, int keyMax, const Optional<MidiData>& midiData) const;
 
-	void drawHorizontal(int keyMin, int keyMax, const MidiData& midiData) const;
+	void drawHorizontal(int keyMin, int keyMax, const Optional<MidiData>& midiData) const;
 
 	void updateTick(const MidiData& midiData);
 

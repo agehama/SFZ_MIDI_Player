@@ -32,6 +32,7 @@ void Main()
 	Optional<MidiData> midiData;
 
 	DragDrop::AcceptFilePaths(true);
+	Window::SetTitle(U"MIDIファイルをドラッグドロップして再生");
 
 	while (System::Update())
 	{
@@ -83,14 +84,14 @@ void Main()
 		if (midiData)
 		{
 			pianoRoll.updateTick(midiData.value());
+		}
 
 #ifdef LAYOUT_HORIZONTAL
-			pianoRoll.drawHorizontal(player.keyMin(), player.keyMax(), midiData.value());
-			player.drawHorizontal(pianoRoll, midiData.value());
+		pianoRoll.drawHorizontal(player.keyMin(), player.keyMax(), midiData);
+		player.drawHorizontal(pianoRoll, midiData);
 #else
-			pianoRoll.drawVertical(player.keyMin(), player.keyMax(), midiData.value());
-			player.drawVertical2(pianoRoll, midiData.value());
+		pianoRoll.drawVertical(player.keyMin(), player.keyMax(), midiData);
+		player.drawVertical(pianoRoll, midiData);
 #endif
-		}
 	}
 }

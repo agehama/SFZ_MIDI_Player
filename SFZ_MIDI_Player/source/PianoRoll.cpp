@@ -3,7 +3,7 @@
 #include <MIDILoader.hpp>
 #include <Utility.hpp>
 
-void PianoRoll::drawVertical(int keyMin, int keyMax, const MidiData& midiData) const
+void PianoRoll::drawVertical(int keyMin, int keyMax, const Optional<MidiData>& midiDataOpt) const
 {
 	const double bottomY = m_area.y + m_area.h;
 	const double unitHeight = m_area.h / (keyMax - keyMin + 1);
@@ -12,6 +12,13 @@ void PianoRoll::drawVertical(int keyMin, int keyMax, const MidiData& midiData) c
 	const Color measureLineColor(214, 214, 214);
 	const Color measureFontColor(214, 214, 214);
 	m_area.draw(bgColor);
+
+	if (!midiDataOpt)
+	{
+		return;
+	}
+
+	const auto& midiData = midiDataOpt.value();
 
 	const double widthTick = (midiData.resolution() / 480.0) * m_area.w / m_drawScale;
 
@@ -91,7 +98,7 @@ void PianoRoll::drawVertical(int keyMin, int keyMax, const MidiData& midiData) c
 	}
 }
 
-void PianoRoll::drawHorizontal(int keyMin, int keyMax, const MidiData& midiData) const
+void PianoRoll::drawHorizontal(int keyMin, int keyMax, const Optional<MidiData>& midiDataOpt) const
 {
 	const double leftX = m_area.x;
 	const double unitWidth = m_area.w / (keyMax - keyMin + 1);
@@ -99,8 +106,14 @@ void PianoRoll::drawHorizontal(int keyMin, int keyMax, const MidiData& midiData)
 	const Color bgColor(19, 19, 22);
 	const Color measureLineColor(214, 214, 214);
 	const Color measureFontColor(214, 214, 214);
-
 	m_area.draw(bgColor);
+
+	if (!midiDataOpt)
+	{
+		return;
+	}
+
+	const auto& midiData = midiDataOpt.value();
 
 	const double heightTick = (midiData.resolution() / 480.0) * m_area.h / m_drawScale;
 

@@ -230,7 +230,7 @@ RectF SamplePlayer::getHorizontalRect(int octaveIndex, int noteIndex, bool isWhi
 	return RectF(noteLeftX, m_area.y, noteWidth, m_area.h * (isWhiteKey ? 1. : 2. / 3.));
 }
 
-void SamplePlayer::drawVertical2(const PianoRoll& pianoroll, const MidiData& midiData) const
+void SamplePlayer::drawVertical(const PianoRoll& pianoroll, const Optional<MidiData>& midiDataOpt) const
 {
 	const int octaveMin = m_octaveMin + 1;
 	//const int octaveMax = m_octaveMax + 1;
@@ -238,21 +238,23 @@ void SamplePlayer::drawVertical2(const PianoRoll& pianoroll, const MidiData& mid
 	//const double currentTick = pianoroll.currentTick();
 	const double currentSeconds = pianoroll.currentSeconds();
 
-	const auto& tracks = midiData.notes();
-
 	HashTable<int, std::pair<double, int>> pressedKeyTick;
-	for (const auto& [i, track] : Indexed(tracks))
+	if (midiDataOpt)
 	{
-		if (i == 10)
+		const auto& tracks = midiDataOpt.value().notes();
+		for (const auto& [i, track] : Indexed(tracks))
 		{
-			continue;
-		}
-
-		for (const auto& note : track.notes())
-		{
-			if (note.beginSec <= currentSeconds && currentSeconds < note.endSec)
+			if (i == 10)
 			{
-				pressedKeyTick[note.key] = std::make_pair(currentSeconds - note.beginSec, static_cast<int>(i));
+				continue;
+			}
+
+			for (const auto& note : track.notes())
+			{
+				if (note.beginSec <= currentSeconds && currentSeconds < note.endSec)
+				{
+					pressedKeyTick[note.key] = std::make_pair(currentSeconds - note.beginSec, static_cast<int>(i));
+				}
 			}
 		}
 	}
@@ -329,7 +331,7 @@ void SamplePlayer::drawVertical2(const PianoRoll& pianoroll, const MidiData& mid
 	}
 }
 
-void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const MidiData& midiData) const
+void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const Optional<MidiData>& midiDataOpt) const
 {
 	const int octaveMin = m_octaveMin + 1;
 	//const int octaveMax = m_octaveMax + 1;
@@ -337,21 +339,23 @@ void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const MidiData& mi
 	//const double currentTick = pianoroll.currentTick();
 	const double currentSeconds = pianoroll.currentSeconds();
 
-	const auto& tracks = midiData.notes();
-
 	HashTable<int, std::pair<double, int>> pressedKeyTick;
-	for (const auto& [i, track] : Indexed(tracks))
+	if (midiDataOpt)
 	{
-		if (i == 10)
+		const auto& tracks = midiDataOpt.value().notes();
+		for (const auto& [i, track] : Indexed(tracks))
 		{
-			continue;
-		}
-
-		for (const auto& note : track.notes())
-		{
-			if (note.beginSec <= currentSeconds && currentSeconds < note.endSec)
+			if (i == 10)
 			{
-				pressedKeyTick[note.key] = std::make_pair(currentSeconds - note.beginSec, static_cast<int>(i));
+				continue;
+			}
+
+			for (const auto& note : track.notes())
+			{
+				if (note.beginSec <= currentSeconds && currentSeconds < note.endSec)
+				{
+					pressedKeyTick[note.key] = std::make_pair(currentSeconds - note.beginSec, static_cast<int>(i));
+				}
 			}
 		}
 	}
