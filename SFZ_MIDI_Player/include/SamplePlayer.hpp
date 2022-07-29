@@ -9,11 +9,11 @@ void SetVolume(Wave& wave, double volume);
 
 void SetRtDecay(Wave& wave, double rt_decay);
 
-class SfzData;
+struct SfzData;
 class PianoRoll;
 class MidiData;
-class NoteEvent;
-class AudioKey;
+struct NoteEvent;
+struct AudioKey;
 
 class SamplePlayer
 {
@@ -51,7 +51,7 @@ public:
 
 	void deleteDuplicate();
 
-	void getSamples3(float* left, float* right, int64 startPos, int64 sampleCount) const;
+	void getSamples(float* left, float* right, int64 startPos, int64 sampleCount) const;
 
 	void clearEvent();
 

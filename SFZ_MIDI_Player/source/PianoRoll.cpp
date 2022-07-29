@@ -78,8 +78,8 @@ void PianoRoll::drawVertical(int keyMin, int keyMax, const MidiData& midiData) c
 				const double x0 = Math::Map(beginTick, leftTick, rightTick, m_area.x, m_area.x + m_area.w);
 				const double x1 = Math::Map(endTick, leftTick, rightTick, m_area.x, m_area.x + m_area.w);
 
-				const int octaveAbs = static_cast<int>(floor(note.key / 12.0));
-				const int noteIndex = note.key - octaveAbs * 12;
+				//const int octaveAbs = static_cast<int>(floor(note.key / 12.0));
+				//const int noteIndex = note.key - octaveAbs * 12;
 				const int keyIndex = note.key - keyMin;
 				const double currentY = bottomY - unitHeight * (keyIndex + 1);
 
@@ -170,8 +170,8 @@ void PianoRoll::drawHorizontal(int keyMin, int keyMax, const MidiData& midiData)
 				const double y0 = Math::Map(beginTick, bottomTick, topTick, m_area.y + m_area.h, m_area.y);
 				const double y1 = Math::Map(endTick, bottomTick, topTick, m_area.y + m_area.h, m_area.y);
 
-				const int octaveAbs = static_cast<int>(floor(note.key / 12.0));
-				const int noteIndex = note.key - octaveAbs * 12;
+				//const int octaveAbs = static_cast<int>(floor(note.key / 12.0));
+				//const int noteIndex = note.key - octaveAbs * 12;
 				const int keyIndex = note.key - keyMin;
 				const double currentX = leftX + unitWidth * keyIndex;
 

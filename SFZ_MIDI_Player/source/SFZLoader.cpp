@@ -92,7 +92,7 @@ Optional<uint8> ParseMidiKey(StringView str)
 			const auto opt = ParseIntOpt<int8>(str.substr(name.length()));
 			if (opt && octaveMin <= opt.value() && opt.value() <= octaveMax)
 			{
-				return static_cast<uint8>(opt.value() + 1) * 12 + localKey;
+				return static_cast<uint8>((opt.value() + 1) * 12 + localKey);
 			}
 		}
 	}
@@ -102,14 +102,9 @@ Optional<uint8> ParseMidiKey(StringView str)
 
 SfzData LoadSfz(FilePathView sfzPath)
 {
-	if (!FileSystem::Exists(sfzPath))
-	{
-		assert(false);
-	}
-	if (U"sfz" != FileSystem::Extension(sfzPath))
-	{
-		assert(false);
-	}
+	assert(FileSystem::Exists(sfzPath));
+
+	assert(U"sfz" == FileSystem::Extension(sfzPath));
 
 	TextReader sfzReader(sfzPath);
 
@@ -192,11 +187,11 @@ SfzData LoadSfz(FilePathView sfzPath)
 				(region ? region.value() : group).hikey = optKey.value();
 				(region ? region.value() : group).pitch_keycenter = optKey.value();
 			}
-			else if (auto optKey = ParseMidiKey(keyStr))
+			else if (auto optKeyName = ParseMidiKey(keyStr))
 			{
-				(region ? region.value() : group).lokey = optKey.value();
-				(region ? region.value() : group).hikey = optKey.value();
-				(region ? region.value() : group).pitch_keycenter = optKey.value();
+				(region ? region.value() : group).lokey = optKeyName.value();
+				(region ? region.value() : group).hikey = optKeyName.value();
+				(region ? region.value() : group).pitch_keycenter = optKeyName.value();
 			}
 			else
 			{
@@ -210,9 +205,9 @@ SfzData LoadSfz(FilePathView sfzPath)
 			{
 				(region ? region.value() : group).lokey = optKey.value();
 			}
-			else if (auto optKey = ParseMidiKey(keyStr))
+			else if (auto optKeyName = ParseMidiKey(keyStr))
 			{
-				(region ? region.value() : group).lokey = optKey.value();
+				(region ? region.value() : group).lokey = optKeyName.value();
 			}
 			else
 			{
@@ -226,9 +221,9 @@ SfzData LoadSfz(FilePathView sfzPath)
 			{
 				(region ? region.value() : group).hikey = optKey.value();
 			}
-			else if (auto optKey = ParseMidiKey(keyStr))
+			else if (auto optKeyName = ParseMidiKey(keyStr))
 			{
-				(region ? region.value() : group).hikey = optKey.value();
+				(region ? region.value() : group).hikey = optKeyName.value();
 			}
 			else
 			{
@@ -242,9 +237,9 @@ SfzData LoadSfz(FilePathView sfzPath)
 			{
 				(region ? region.value() : group).pitch_keycenter = optKey.value();
 			}
-			else if (auto optKey = ParseMidiKey(keyStr))
+			else if (auto optKeyName = ParseMidiKey(keyStr))
 			{
-				(region ? region.value() : group).pitch_keycenter = optKey.value();
+				(region ? region.value() : group).pitch_keycenter = optKeyName.value();
 			}
 			else
 			{

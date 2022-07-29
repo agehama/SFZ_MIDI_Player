@@ -474,14 +474,14 @@ MetaEventData ReadMetaEvent(BinaryReader& reader, TextWriter& debugLog)
 	{
 		debugLog << U"MIDIチャンネルプリフィクス";
 		ReadBytes<uint8>(reader);
-		const uint8 data = ReadBytes<uint8>(reader);
+		/*const uint8 data =*/ ReadBytes<uint8>(reader);
 		return MetaEventData();
 	}
 	case 0x21:
 	{
 		debugLog << U"ポート指定";
 		ReadBytes<uint8>(reader);
-		const uint8 data = ReadBytes<uint8>(reader);
+		/*const uint8 data =*/ ReadBytes<uint8>(reader);
 		return MetaEventData();
 	}
 	case 0x2f:

@@ -84,9 +84,9 @@ struct AudioKey
 
 	const static int64 BlendSampleCount = 100;
 
-	void getSamples3(float* left, float* right, int64 startPos, int64 sampleCount) const;
+	void getSamples(float* left, float* right, int64 startPos, int64 sampleCount) const;
 
-	void render3(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex) const;
+	void render(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex) const;
 
 	void renderRelease(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex) const;
 

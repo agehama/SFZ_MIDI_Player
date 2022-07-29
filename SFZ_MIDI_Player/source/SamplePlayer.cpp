@@ -91,7 +91,7 @@ Wave SetTuneWave(const Wave& original, int32 tune)
 
 void SetVolume(Wave& wave, double volume)
 {
-	const double scale = std::pow(10.0, volume / 20.0) * 0.5;
+	const float scale = static_cast<float>(std::pow(10.0, volume / 20.0) * 0.5);
 	for (auto& sample : wave)
 	{
 		sample *= scale;
@@ -104,7 +104,7 @@ void SetRtDecay(Wave& wave, double rt_decay)
 	{
 		const double seconds = 1.0 * i / wave.sampleRate();
 		const double currentVolume = -seconds * rt_decay;
-		const double scale = std::pow(10.0, currentVolume / 20.0) * 0.5;
+		const float scale = static_cast<float>(std::pow(10.0, currentVolume / 20.0) * 0.5);
 		sample *= scale;
 	}
 }
@@ -232,9 +232,9 @@ RectF SamplePlayer::getHorizontalRect(int octaveIndex, int noteIndex, bool isWhi
 void SamplePlayer::drawVertical2(const PianoRoll& pianoroll, const MidiData& midiData) const
 {
 	const int octaveMin = m_octaveMin + 1;
-	const int octaveMax = m_octaveMax + 1;
+	//const int octaveMax = m_octaveMax + 1;
 
-	const double currentTick = pianoroll.currentTick();
+	//const double currentTick = pianoroll.currentTick();
 	const double currentSeconds = pianoroll.currentSeconds();
 
 	const auto& tracks = midiData.notes();
@@ -251,7 +251,7 @@ void SamplePlayer::drawVertical2(const PianoRoll& pianoroll, const MidiData& mid
 		{
 			if (note.beginSec <= currentSeconds && currentSeconds < note.endSec)
 			{
-				pressedKeyTick[note.key] = std::make_pair(currentSeconds - note.beginSec, i);
+				pressedKeyTick[note.key] = std::make_pair(currentSeconds - note.beginSec, static_cast<int>(i));
 			}
 		}
 	}
@@ -331,9 +331,9 @@ void SamplePlayer::drawVertical2(const PianoRoll& pianoroll, const MidiData& mid
 void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const MidiData& midiData) const
 {
 	const int octaveMin = m_octaveMin + 1;
-	const int octaveMax = m_octaveMax + 1;
+	//const int octaveMax = m_octaveMax + 1;
 
-	const double currentTick = pianoroll.currentTick();
+	//const double currentTick = pianoroll.currentTick();
 	const double currentSeconds = pianoroll.currentSeconds();
 
 	const auto& tracks = midiData.notes();
@@ -350,7 +350,7 @@ void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const MidiData& mi
 		{
 			if (note.beginSec <= currentSeconds && currentSeconds < note.endSec)
 			{
-				pressedKeyTick[note.key] = std::make_pair(currentSeconds - note.beginSec, i);
+				pressedKeyTick[note.key] = std::make_pair(currentSeconds - note.beginSec, static_cast<int>(i));
 			}
 		}
 	}
@@ -454,7 +454,7 @@ void SamplePlayer::deleteDuplicate()
 	}
 }
 
-void SamplePlayer::getSamples3(float* left, float* right, int64 startPos, int64 sampleCount) const
+void SamplePlayer::getSamples(float* left, float* right, int64 startPos, int64 sampleCount) const
 {
 	for (int i = 0; i < sampleCount; ++i)
 	{
@@ -464,7 +464,7 @@ void SamplePlayer::getSamples3(float* left, float* right, int64 startPos, int64 
 	{
 		if (!m_audioKeys[index].attackKeys.empty())
 		{
-			m_audioKeys[index].getSamples3(left, right, startPos, sampleCount);
+			m_audioKeys[index].getSamples(left, right, startPos, sampleCount);
 		}
 	}
 }
@@ -481,7 +481,6 @@ Array<NoteEvent> SamplePlayer::addEvents(const MidiData& midiData)
 {
 	clearEvent();
 
-	const double resolution = midiData.resolution();
 	const auto tracks = midiData.notes();
 
 	Array<NoteEvent> results;
@@ -497,12 +496,10 @@ Array<NoteEvent> SamplePlayer::addEvents(const MidiData& midiData)
 			continue;
 		}
 
-		int shift = 0;
-
 		for (const auto& note : track.notes())
 		{
-			const uint32 beginTick = note.tick + (shift * i);
-			const uint32 endTick = note.tick + note.gate + (shift * i);
+			const int64 beginTick = note.tick;
+			const int64 endTick = note.tick + note.gate;
 
 			const double beginSec = midiData.ticksToSeconds(beginTick);
 			const double endSec = midiData.ticksToSeconds(endTick);
@@ -529,11 +526,11 @@ void SamplerAudioStream::getAudio(float* left, float* right, const size_t sample
 		return;
 	}
 
-	m_samplePlayer.get().getSamples3(left, right, m_pos, samplesToWrite);
+	m_samplePlayer.get().getSamples(left, right, m_pos, samplesToWrite);
 	m_pos += samplesToWrite;
 }
 
 void AudioRenderer::getAudio(float* left, float* right, int64 startPos, int64 sampleCount)
 {
-	m_samplePlayer.get().getSamples3(left, right, startPos, sampleCount);
+	m_samplePlayer.get().getSamples(left, right, startPos, sampleCount);
 }
