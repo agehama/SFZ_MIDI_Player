@@ -52,9 +52,7 @@ void Main()
 				pianoRoll.pause();
 				audio.pause();
 
-				Console << U"読み込み中：" << filepath.path;
 				player.loadData(LoadSfz(filepath.path));
-				Console << U"読み込み完了";
 
 				pianoRoll.resume();
 				audio.play();

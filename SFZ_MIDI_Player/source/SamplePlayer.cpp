@@ -121,8 +121,12 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 		audioKey.init(static_cast<int8>(i - 127));
 	}
 
-	for (const auto& data : sfzData.data)
+	Window::SetTitle(U"音源読み込み中：0 %");
+	for (const auto& [i, data] : Indexed(sfzData.data))
 	{
+		const auto progress = 1.0 * i / sfzData.data.size();
+		Window::SetTitle(Format(U"音源読み込み中：", Math::Round(progress * 100), U" %"));
+
 		const auto samplePath = sfzData.dir + data.sample;
 		if (!FileSystem::Exists(samplePath))
 		{
