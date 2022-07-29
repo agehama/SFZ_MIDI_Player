@@ -63,10 +63,13 @@ struct AudioSource
 
 struct AudioKey
 {
-	int8 noteKey;
-	Array<AudioSource> attackKeys;
-	Array<AudioSource> releaseKeys;
-	Array<NoteEvent> m_noteEvents;
+	void init(int8 key);
+
+	void addAttackKey(const AudioSource& source);
+
+	void addReleaseKey(const AudioSource& source);
+
+	bool hasAttackKey() const;
 
 	const NoteEvent& addEvent(uint8 velocity, int64 pressTimePos, int64 releaseTimePos);
 
@@ -82,9 +85,15 @@ struct AudioKey
 
 	void deleteDuplicate();
 
-	const static int64 BlendSampleCount = 100;
-
 	void getSamples(float* left, float* right, int64 startPos, int64 sampleCount) const;
+
+private:
+
+	int8 noteKey;
+	Array<AudioSource> attackKeys;
+	Array<AudioSource> releaseKeys;
+	Array<NoteEvent> m_noteEvents;
+	const static int64 BlendSampleCount = 100;
 
 	void render(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex) const;
 

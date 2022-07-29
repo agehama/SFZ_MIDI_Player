@@ -49,7 +49,6 @@ private:
 	double m_currentTick = 0;
 	Stopwatch m_watch;
 
-	//double m_secToTicks = 0;
 	int m_playtrack = 3;
 
 	double m_unitLength = 8;

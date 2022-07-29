@@ -109,7 +109,6 @@ void SetRtDecay(Wave& wave, double rt_decay)
 	}
 }
 
-
 void SamplePlayer::loadData(const SfzData& sfzData)
 {
 	if (m_audioKeys.size() != 255)
@@ -119,9 +118,7 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 
 	for (auto [i, audioKey] : IndexedRef(m_audioKeys))
 	{
-		audioKey.noteKey = static_cast<int8>(i - 127);
-		audioKey.attackKeys.clear();
-		audioKey.releaseKeys.clear();
+		audioKey.init(static_cast<int8>(i - 127));
 	}
 
 	for (const auto& data : sfzData.data)
@@ -164,12 +161,12 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 
 			if (data.trigger == Trigger::Attack)
 			{
-				m_audioKeys[index].attackKeys.push_back(source);
+				m_audioKeys[index].addAttackKey(source);
 			}
 			else if (data.trigger == Trigger::Release)
 			{
 				SetRtDecay(source.wave, data.rt_decay);
-				m_audioKeys[index].releaseKeys.push_back(source);
+				m_audioKeys[index].addReleaseKey(source);
 			}
 		}
 	}
@@ -436,7 +433,7 @@ void SamplePlayer::sortEvent()
 {
 	for (uint8 index = 127; index < 255; ++index)
 	{
-		if (!m_audioKeys[index].attackKeys.empty())
+		if (m_audioKeys[index].hasAttackKey())
 		{
 			m_audioKeys[index].sortEvent();
 		}
@@ -447,7 +444,7 @@ void SamplePlayer::deleteDuplicate()
 {
 	for (uint8 index = 127; index < 255; ++index)
 	{
-		if (!m_audioKeys[index].attackKeys.empty())
+		if (m_audioKeys[index].hasAttackKey())
 		{
 			m_audioKeys[index].deleteDuplicate();
 		}
@@ -462,7 +459,7 @@ void SamplePlayer::getSamples(float* left, float* right, int64 startPos, int64 s
 	}
 	for (uint8 index = 127; index < 255; ++index)
 	{
-		if (!m_audioKeys[index].attackKeys.empty())
+		if (m_audioKeys[index].hasAttackKey())
 		{
 			m_audioKeys[index].getSamples(left, right, startPos, sampleCount);
 		}

@@ -43,6 +43,28 @@ double Envelope::level(double noteOnTime, double noteOffTime, double time) const
 	return sustainLevel;
 }
 
+void AudioKey::init(int8 key)
+{
+	noteKey = key;
+	attackKeys.clear();
+	releaseKeys.clear();
+}
+
+void AudioKey::addAttackKey(const AudioSource& source)
+{
+	attackKeys.push_back(source);
+}
+
+void AudioKey::addReleaseKey(const AudioSource& source)
+{
+	releaseKeys.push_back(source);
+}
+
+bool AudioKey::hasAttackKey() const
+{
+	return !attackKeys.empty();
+}
+
 const NoteEvent& AudioKey::addEvent(uint8 velocity, int64 pressTimePos, int64 releaseTimePos)
 {
 	const auto attackIndex = getAttackIndex(velocity);
