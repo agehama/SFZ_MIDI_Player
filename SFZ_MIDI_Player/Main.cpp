@@ -45,6 +45,7 @@ void Main()
 				player.addEvents(midiData.value());
 				pianoRoll.playRestart();
 				audioStream->restart();
+				audio.play();
 			}
 			else if (U"sfz" == FileSystem::Extension(filepath.path))
 			{
@@ -78,6 +79,7 @@ void Main()
 		{
 			pianoRoll.playRestart();
 			audioStream->restart();
+			audio.play();
 		}
 
 		if (midiData)
