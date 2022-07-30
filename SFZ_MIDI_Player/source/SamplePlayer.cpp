@@ -64,41 +64,11 @@ Wave SetSpeedWave(const Wave& original, int semitone)
 	return wave;
 }
 
-Wave SetTuneWave(const Wave& original, int32 tune)
-{
-	const double speed = std::exp2(tune / 1200.0);
-	const double scale = 1.0 / speed;
-	const auto sampleCount = static_cast<int64>(Math::Ceil(original.lengthSample() * scale));
-
-	Wave wave(sampleCount);
-	for (auto i : step(sampleCount))
-	{
-		const double readIndex = i * speed;
-		const auto prevIndex = static_cast<int64>(Floor(readIndex));
-		const auto nextIndex = Min(static_cast<int64>(Ceil(readIndex)), static_cast<int64>(original.size() - 1));
-		const double t = Math::Fmod(readIndex, 1.0);
-		wave[i] = original[prevIndex].lerp(original[nextIndex], t);
-	}
-
-	return wave;
-}
-
 void SetVolume(Wave& wave, double volume)
 {
 	const float scale = static_cast<float>(std::pow(10.0, volume / 20.0) * 0.5);
 	for (auto& sample : wave)
 	{
-		sample *= scale;
-	}
-}
-
-void SetRtDecay(Wave& wave, double rt_decay)
-{
-	for (auto [i, sample] : IndexedRef(wave))
-	{
-		const double seconds = 1.0 * i / wave.sampleRate();
-		const double currentVolume = -seconds * rt_decay;
-		const float scale = static_cast<float>(std::pow(10.0, currentVolume / 20.0) * 0.5);
 		sample *= scale;
 	}
 }
@@ -126,36 +96,21 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 		{
 			Console << U"file does not exist: \"" << samplePath << U"\"";
 		}
-		const Wave wave(samplePath);
 
-		const int loIndex = data.lokey + 127;
-		const int hiIndex = data.hikey + 127;
+		const Envelope envelope(data.ampeg_attack, data.ampeg_decay, data.ampeg_sustain / 100.0, data.ampeg_release);
 
-		for (int index = loIndex; index <= hiIndex; ++index)
+		Wave originalWave(samplePath);
+		SetVolume(originalWave, data.volume);
+
+		const int32 loIndex = data.lokey + 127;
+		const int32 hiIndex = data.hikey + 127;
+
+		for (int32 index = loIndex; index <= hiIndex; ++index)
 		{
-			const int key = index - 127;
+			const int32 key = index - 127;
+			const int32 tune = (key - data.pitch_keycenter) * 100 + data.tune;
 
-			AudioSource source;
-			source.lovel = data.lovel;
-			source.hivel = data.hivel;
-			source.tune = (key - data.pitch_keycenter) * 100 + data.tune;
-			source.wave = wave;
-
-			source.envelope.attackTime = data.ampeg_attack;
-			source.envelope.decayTime = data.ampeg_decay;
-			source.envelope.sustainLevel = data.ampeg_sustain / 100.0;
-			source.envelope.releaseTime = data.ampeg_release;
-
-			if (source.tune == 0)
-			{
-				source.wave = wave;
-			}
-			else
-			{
-				source.wave = SetTuneWave(wave, source.tune);
-			}
-
-			SetVolume(source.wave, data.volume);
+			AudioSource source(originalWave, envelope, data.lovel, data.hivel, tune);
 
 			if (data.trigger == Trigger::Attack)
 			{
@@ -163,7 +118,7 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 			}
 			else if (data.trigger == Trigger::Release)
 			{
-				SetRtDecay(source.wave, data.rt_decay);
+				source.setRtDecay(data.rt_decay);
 				m_audioKeys[index].addReleaseKey(source);
 			}
 		}

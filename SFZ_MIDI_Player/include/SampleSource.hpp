@@ -19,18 +19,22 @@ struct NoteEvent
 	{}
 };
 
-struct Envelope
+class Envelope
 {
-	double attackTime = 0;
-	double decayTime = 0;
-	double sustainLevel = 1;
-	double releaseTime = 0;
+public:
+
+	Envelope(double attackTime, double decayTime, double sustainLevel, double releaseTime):
+		m_attackTime(attackTime),
+		m_decayTime(decayTime),
+		m_sustainLevel(sustainLevel),
+		m_releaseTime(releaseTime)
+	{}
 
 	// attackやdecayの途中でノートオフが来た場合、途中でフェードアウトすると鳴り方が変わってしまうのでdecayが終わるまで遅延させる
 	double noteTime(double noteOnTime, double noteOffTime) const
 	{
 		const double duration = noteOffTime - noteOnTime;
-		return Max(duration, attackTime + decayTime) + releaseTime;
+		return Max(duration, m_attackTime + m_decayTime) + m_releaseTime;
 	}
 
 	double noteTime(const NoteEvent& noteEvent) const
@@ -44,25 +48,58 @@ struct Envelope
 	{
 		return level(1.0 * noteEvent.pressTimePos / Wave::DefaultSampleRate, 1.0 * noteEvent.releaseTimePos / Wave::DefaultSampleRate, time);
 	}
+
+private:
+
+	double m_attackTime = 0;
+	double m_decayTime = 0;
+	double m_sustainLevel = 1;
+	double m_releaseTime = 0;
 };
 
+// 1つのソース音源に対応
 struct AudioSource
 {
-	bool isValidVelocity(uint8 velocity) const
+public:
+
+	AudioSource(const Wave& wave, const Envelope& envelope, uint8 lovel, uint8 hivel, int32 tune):
+		m_lovel(lovel),
+		m_hivel(hivel),
+		m_tune(tune),
+		m_envelope(envelope)
 	{
-		return lovel <= velocity && velocity <= hivel;
+		initTuneWave(wave);
 	}
 
-	uint8 lovel;
-	uint8 hivel;
+	bool isValidVelocity(uint8 velocity) const
+	{
+		return m_lovel <= velocity && velocity <= m_hivel;
+	}
 
-	Wave wave;
-	int32 tune;// 100 == 1 semitone
-	Envelope envelope;
+	void setRtDecay(float rtDecay);
+
+	const Wave& wave() const { return m_wave; }
+
+	const Envelope& envelope() const { return m_envelope; }
+
+private:
+
+	void initTuneWave(const Wave& originalWave);
+
+	int32 m_tune;// 100 == 1 semitone
+	float m_rtDecay = 0;
+
+	Wave m_wave;
+	uint8 m_lovel;
+	uint8 m_hivel;
+	Envelope m_envelope;
 };
 
-struct AudioKey
+// 1つのキーから鳴らされるAudioSourceをまとめたもの
+class AudioKey
 {
+public:
+
 	void init(int8 key);
 
 	void addAttackKey(const AudioSource& source);
@@ -89,11 +126,11 @@ struct AudioKey
 
 private:
 
+	const static int64 BlendSampleCount = 100;
 	int8 noteKey;
 	Array<AudioSource> attackKeys;
 	Array<AudioSource> releaseKeys;
 	Array<NoteEvent> m_noteEvents;
-	const static int64 BlendSampleCount = 100;
 
 	void render(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex) const;
 

@@ -85,8 +85,6 @@ void PianoRoll::drawVertical(int keyMin, int keyMax, const Optional<MidiData>& m
 				const double x0 = Math::Map(beginTick, leftTick, rightTick, m_area.x, m_area.x + m_area.w);
 				const double x1 = Math::Map(endTick, leftTick, rightTick, m_area.x, m_area.x + m_area.w);
 
-				//const int octaveAbs = static_cast<int>(floor(note.key / 12.0));
-				//const int noteIndex = note.key - octaveAbs * 12;
 				const int keyIndex = note.key - keyMin;
 				const double currentY = bottomY - unitHeight * (keyIndex + 1);
 
@@ -136,11 +134,9 @@ void PianoRoll::drawHorizontal(int keyMin, int keyMax, const Optional<MidiData>&
 			{
 				const double y = Math::Map(beginTick, bottomTick, topTick, m_area.y + m_area.h, m_area.y);
 				const Line line(m_area.x, y, m_area.x + m_area.w, y);
-				DrawDotLine(line.movedBy(Vec2(0, 1)), m_unitLength, m_interval, 1, Palette::Black);
 				DrawDotLine(line, m_unitLength, m_interval, 1, measureLineColor);
 
 				const auto measureNumber = measure.measureIndex + 1;
-				m_font(measureNumber).draw(Arg::bottomLeft = line.begin + Vec2(14, -8), Palette::Black);
 				m_font(measureNumber).draw(Arg::bottomLeft = line.begin + Vec2(14, -10), measureFontColor);
 			}
 

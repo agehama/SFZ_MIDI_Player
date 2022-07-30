@@ -5,7 +5,7 @@ struct SfzData;
 class PianoRoll;
 class MidiData;
 struct NoteEvent;
-struct AudioKey;
+class AudioKey;
 
 class SamplePlayer
 {
