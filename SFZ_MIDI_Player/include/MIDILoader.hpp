@@ -134,7 +134,6 @@ enum class ControlChangeType : uint8
 	Poly_Mode_On,
 };
 
-
 struct ControlChangeData
 {
 	ControlChangeType type;
@@ -317,7 +316,5 @@ private:
 
 	std::map<int64, double> m_bpmSetEvents;
 };
-
-MetaEventData ReadMetaEvent(BinaryReader& reader, TextWriter& debugLog);
 
 Optional<MidiData> LoadMidi(FilePathView path);

@@ -9,9 +9,8 @@ public:
 
 	PianoRoll() = default;
 
-	PianoRoll(const Rect& area, double measureWidth) :
-		m_area(area),
-		m_measureWidth(measureWidth)
+	PianoRoll(const Rect& area) :
+		m_area(area)
 	{}
 
 	void drawVertical(int keyMin, int keyMax, const Optional<MidiData>& midiData) const;
@@ -37,19 +36,15 @@ public:
 private:
 	std::atomic<bool> mIsPlaying = false;
 	std::atomic<double> m_currentTime = 0.0f;
-	double m_lastTime = 0.0f;
 
 	Font m_font = Font(24);
 
 	RectF m_area;
-	double m_measureWidth;
 	double m_drawScale = 0.4;
 
 	double m_lastTick = 0;
 	double m_currentTick = 0;
 	Stopwatch m_watch;
-
-	int m_playtrack = 3;
 
 	double m_unitLength = 8;
 	double m_interval = 8;

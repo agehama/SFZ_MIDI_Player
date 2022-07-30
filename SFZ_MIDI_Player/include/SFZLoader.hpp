@@ -6,10 +6,6 @@ enum class Trigger : uint8
 	Attack, Release, First, Legato
 };
 
-Trigger ParseTrigger(StringView trigger);
-
-String TriggerToStr(Trigger trigger);
-
 // https://musf.ifdef.jp/sfz/sfz_File_Format.html
 struct RegionSetting
 {
@@ -47,7 +43,5 @@ struct SfzData
 	String dir;
 	Array<RegionSetting> data;
 };
-
-Optional<uint8> ParseMidiKey(StringView str);
 
 SfzData LoadSfz(FilePathView sfzPath);

@@ -59,9 +59,6 @@ Wave SetSpeedWave(const Wave& original, int semitone)
 		const auto nextIndex = static_cast<int64>(Ceil(readIndex));
 		const double t = Math::Fmod(readIndex, 1.0);
 		wave[i] = original[prevIndex].lerp(original[nextIndex], t);
-
-		//const auto originalIndex = static_cast<int64>(Math::Round(i * speed));
-		//wave[i] = original[originalIndex];
 	}
 
 	return wave;
@@ -81,9 +78,6 @@ Wave SetTuneWave(const Wave& original, int32 tune)
 		const auto nextIndex = Min(static_cast<int64>(Ceil(readIndex)), static_cast<int64>(original.size() - 1));
 		const double t = Math::Fmod(readIndex, 1.0);
 		wave[i] = original[prevIndex].lerp(original[nextIndex], t);
-
-		//const auto originalIndex = static_cast<int64>(Math::Round(i * speed));
-		//wave[i] = original[originalIndex];
 	}
 
 	return wave;

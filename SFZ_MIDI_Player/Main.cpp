@@ -23,7 +23,7 @@ void Main()
 	SamplePlayer player{ keyboardArea };
 	player.loadData(data);
 
-	PianoRoll pianoRoll{ pianorollArea, 300 };
+	PianoRoll pianoRoll{ pianorollArea };
 
 	std::shared_ptr<SamplerAudioStream> audioStream = std::make_shared<SamplerAudioStream>(pianoRoll, player);
 	Audio audio{ audioStream };

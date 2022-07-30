@@ -1,44 +1,86 @@
 ﻿#pragma once
 #include <SFZLoader.hpp>
 
-Trigger ParseTrigger(StringView trigger)
+namespace
 {
-	if (trigger == U"attack")
+	Trigger ParseTrigger(StringView trigger)
 	{
+		if (trigger == U"attack")
+		{
+			return Trigger::Attack;
+		}
+		else if (trigger == U"release")
+		{
+			return Trigger::Release;
+		}
+		else if (trigger == U"first")
+		{
+			return Trigger::First;
+		}
+		else if (trigger == U"legato")
+		{
+			return Trigger::Legato;
+		}
+
+		assert(false);
 		return Trigger::Attack;
 	}
-	else if (trigger == U"release")
+
+	String TriggerToStr(Trigger trigger)
 	{
-		return Trigger::Release;
-	}
-	else if (trigger == U"first")
-	{
-		return Trigger::First;
-	}
-	else if (trigger == U"legato")
-	{
-		return Trigger::Legato;
+		switch (trigger)
+		{
+		case Trigger::Attack:
+			return U"attack";
+		case Trigger::Release:
+			return U"release";
+		case Trigger::First:
+			return U"first";
+		case Trigger::Legato:
+			return U"legato";
+		default:
+			assert(false);
+			return U"";
+		}
 	}
 
-	assert(false);
-	return Trigger::Attack;
-}
-
-String TriggerToStr(Trigger trigger)
-{
-	switch (trigger)
+	Optional<uint8> ParseMidiKey(StringView str)
 	{
-	case Trigger::Attack:
-		return U"attack";
-	case Trigger::Release:
-		return U"release";
-	case Trigger::First:
-		return U"first";
-	case Trigger::Legato:
-		return U"legato";
-	default:
-		assert(false);
-		return U"";
+		std::map<String, uint8> keys;
+		keys[U"c"] = 0;
+		keys[U"c#"] = 1;
+		keys[U"db"] = 1;
+		keys[U"d"] = 2;
+		keys[U"d#"] = 3;
+		keys[U"eb"] = 3;
+		keys[U"e"] = 4;
+		keys[U"f"] = 5;
+		keys[U"f#"] = 6;
+		keys[U"gb"] = 6;
+		keys[U"g"] = 7;
+		keys[U"g#"] = 8;
+		keys[U"ab"] = 8;
+		keys[U"a"] = 9;
+		keys[U"a#"] = 10;
+		keys[U"bb"] = 10;
+		keys[U"b"] = 11;
+
+		const int8 octaveMin = -1;
+		const int8 octaveMax = 9;
+
+		for (const auto& [name, localKey] : keys)
+		{
+			if (str.starts_with(name))
+			{
+				const auto opt = ParseIntOpt<int8>(str.substr(name.length()));
+				if (opt && octaveMin <= opt.value() && opt.value() <= octaveMax)
+				{
+					return static_cast<uint8>((opt.value() + 1) * 12 + localKey);
+				}
+			}
+		}
+
+		return none;
 	}
 }
 
@@ -59,45 +101,6 @@ void RegionSetting::debugPrint() const
 	Console << U"rt_decay: " << rt_decay;
 
 	Console << U"ampeg: " << Vec4(ampeg_attack, ampeg_decay, ampeg_sustain, ampeg_release);
-}
-
-Optional<uint8> ParseMidiKey(StringView str)
-{
-	std::map<String, uint8> keys;
-	keys[U"c"] = 0;
-	keys[U"c#"] = 1;
-	keys[U"db"] = 1;
-	keys[U"d"] = 2;
-	keys[U"d#"] = 3;
-	keys[U"eb"] = 3;
-	keys[U"e"] = 4;
-	keys[U"f"] = 5;
-	keys[U"f#"] = 6;
-	keys[U"gb"] = 6;
-	keys[U"g"] = 7;
-	keys[U"g#"] = 8;
-	keys[U"ab"] = 8;
-	keys[U"a"] = 9;
-	keys[U"a#"] = 10;
-	keys[U"bb"] = 10;
-	keys[U"b"] = 11;
-
-	const int8 octaveMin = -1;
-	const int8 octaveMax = 9;
-
-	for (const auto& [name, localKey] : keys)
-	{
-		if (str.starts_with(name))
-		{
-			const auto opt = ParseIntOpt<int8>(str.substr(name.length()));
-			if (opt && octaveMin <= opt.value() && opt.value() <= octaveMax)
-			{
-				return static_cast<uint8>((opt.value() + 1) * 12 + localKey);
-			}
-		}
-	}
-
-	return none;
 }
 
 SfzData LoadSfz(FilePathView sfzPath)

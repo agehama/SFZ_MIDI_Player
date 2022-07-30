@@ -1,14 +1,6 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
 
-Wave SetSpeedWave(const Wave& original, int semitone);
-
-Wave SetTuneWave(const Wave& original, int32 tune);
-
-void SetVolume(Wave& wave, double volume);
-
-void SetRtDecay(Wave& wave, double rt_decay);
-
 struct SfzData;
 class PianoRoll;
 class MidiData;
@@ -59,19 +51,13 @@ public:
 
 private:
 
-	Optional<int> m_pressedKey;
-
 	Array<AudioKey> m_audioKeys;
 
 	RectF m_area;
 
 	Font m_font = Font(12);
 
-	//Envelope m_envelope;
-
 	// [-1, 9]
-	/*int m_octaveMin = 3;
-	int m_octaveMax = 6;*/
 	int m_octaveMin = 1;
 	int m_octaveMax = 7;
 };

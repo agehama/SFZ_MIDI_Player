@@ -5,7 +5,6 @@
 MetaEventData MetaEventData::Error()
 {
 	MetaEventData data;
-	//data.isError = true;
 	data.type = MetaEventType::Error;
 	return data;
 }
@@ -13,7 +12,6 @@ MetaEventData MetaEventData::Error()
 MetaEventData MetaEventData::EndOfTrack()
 {
 	MetaEventData data;
-	//data.isEndOfTrack = true;
 	data.type = MetaEventType::EndOfTrack;
 	return data;
 }
@@ -339,6 +337,7 @@ int64 MidiData::secondsToTicks(double seconds) const
 	const double secToTicks = (resolution * lastBPM) / 60.0;
 	return lastBPMSetTick + static_cast<int64>(Math::Round((seconds - sumOfTime) * secToTicks));
 }
+
 double MidiData::secondsToTicks2(double seconds) const
 {
 	const double resolution = m_resolution;
@@ -393,159 +392,162 @@ bool MidiData::intersects(uint32 range0begin, uint32 range0end, uint32 range1beg
 	return !notIntersects;
 }
 
-// https://sites.google.com/site/yyagisite/material/smfspec
-// http://quelque.sakura.ne.jp/midi_meta.html
-MetaEventData ReadMetaEvent(BinaryReader& reader, TextWriter& debugLog)
+namespace
 {
-	const uint8 metaEventType = ReadBytes<uint8>(reader);
-	switch (metaEventType)
+	// https://sites.google.com/site/yyagisite/material/smfspec
+	// http://quelque.sakura.ne.jp/midi_meta.html
+	MetaEventData ReadMetaEvent(BinaryReader& reader, TextWriter& debugLog)
 	{
-	case 0x0:
-	{
-		debugLog << U"error: シーケンス番号（非対応フォーマット）";
-		return MetaEventData::Error();
-	}
-	case 0x1:
-	{
-		debugLog << U"テキストイベント";
-		const auto text = ReadText(reader);
-		debugLog << Unicode::FromUTF8(text);
-		return MetaEventData();
-	}
-	case 0x2:
-	{
-		debugLog << U"著作権表示";
-		const uint8 length = ReadBytes<uint8>(reader);
-		Array<char> chars(length + 1ull, '\0');
-		reader.read(chars.data(), length);
-		debugLog << Unicode::FromUTF8(std::string(chars.data()));
-		return MetaEventData();
-	}
-	case 0x3:
-	{
-		debugLog << U"シーケンス名/トラック名";
-		const auto text = ReadText(reader);
-		debugLog << Unicode::FromUTF8(text);
-		return MetaEventData();
-	}
-	case 0x4:
-	{
-		debugLog << U"楽器名";
-		const auto text = ReadText(reader);
-		debugLog << Unicode::FromUTF8(text);
-		return MetaEventData();
-	}
-	case 0x5:
-	{
-		debugLog << U"歌詞";
-		const auto text = ReadText(reader);
-		debugLog << Unicode::FromUTF8(text);
-		return MetaEventData();
-	}
-	case 0x6:
-	{
-		debugLog << U"マーカー";
-		const auto text = ReadText(reader);
-		debugLog << Unicode::FromUTF8(text);
-		return MetaEventData();
-	}
-	case 0x7:
-	{
-		debugLog << U"キューポイント";
-		const auto text = ReadText(reader);
-		debugLog << Unicode::FromUTF8(text);
-		return MetaEventData();
-	}
-	case 0x8:
-	{
-		debugLog << U"プログラム名";
-		const auto text = ReadText(reader);
-		debugLog << Unicode::FromUTF8(text);
-		return MetaEventData();
-	}
-	case 0x9:
-	{
-		debugLog << U"デバイス名";
-		const auto text = ReadText(reader);
-		debugLog << Unicode::FromUTF8(text);
-		return MetaEventData();
-	}
-	case 0x20:
-	{
-		debugLog << U"MIDIチャンネルプリフィクス";
-		ReadBytes<uint8>(reader);
-		/*const uint8 data =*/ ReadBytes<uint8>(reader);
-		return MetaEventData();
-	}
-	case 0x21:
-	{
-		debugLog << U"ポート指定";
-		ReadBytes<uint8>(reader);
-		/*const uint8 data =*/ ReadBytes<uint8>(reader);
-		return MetaEventData();
-	}
-	case 0x2f:
-	{
-		debugLog << U"end of track";
-		ReadBytes<uint8>(reader);
-		return MetaEventData::EndOfTrack();
-	}
-	case 0x51:
-	{
-		//debugLog << U"テンポ指定 at " << reader.getPos();
-		ReadBytes<uint8>(reader);//==3
+		const uint8 metaEventType = ReadBytes<uint8>(reader);
+		switch (metaEventType)
+		{
+		case 0x0:
+		{
+			debugLog << U"error: シーケンス番号（非対応フォーマット）";
+			return MetaEventData::Error();
+		}
+		case 0x1:
+		{
+			debugLog << U"テキストイベント";
+			const auto text = ReadText(reader);
+			debugLog << Unicode::FromUTF8(text);
+			return MetaEventData();
+		}
+		case 0x2:
+		{
+			debugLog << U"著作権表示";
+			const uint8 length = ReadBytes<uint8>(reader);
+			Array<char> chars(length + 1ull, '\0');
+			reader.read(chars.data(), length);
+			debugLog << Unicode::FromUTF8(std::string(chars.data()));
+			return MetaEventData();
+		}
+		case 0x3:
+		{
+			debugLog << U"シーケンス名/トラック名";
+			const auto text = ReadText(reader);
+			debugLog << Unicode::FromUTF8(text);
+			return MetaEventData();
+		}
+		case 0x4:
+		{
+			debugLog << U"楽器名";
+			const auto text = ReadText(reader);
+			debugLog << Unicode::FromUTF8(text);
+			return MetaEventData();
+		}
+		case 0x5:
+		{
+			debugLog << U"歌詞";
+			const auto text = ReadText(reader);
+			debugLog << Unicode::FromUTF8(text);
+			return MetaEventData();
+		}
+		case 0x6:
+		{
+			debugLog << U"マーカー";
+			const auto text = ReadText(reader);
+			debugLog << Unicode::FromUTF8(text);
+			return MetaEventData();
+		}
+		case 0x7:
+		{
+			debugLog << U"キューポイント";
+			const auto text = ReadText(reader);
+			debugLog << Unicode::FromUTF8(text);
+			return MetaEventData();
+		}
+		case 0x8:
+		{
+			debugLog << U"プログラム名";
+			const auto text = ReadText(reader);
+			debugLog << Unicode::FromUTF8(text);
+			return MetaEventData();
+		}
+		case 0x9:
+		{
+			debugLog << U"デバイス名";
+			const auto text = ReadText(reader);
+			debugLog << Unicode::FromUTF8(text);
+			return MetaEventData();
+		}
+		case 0x20:
+		{
+			debugLog << U"MIDIチャンネルプリフィクス";
+			ReadBytes<uint8>(reader);
+			/*const uint8 data =*/ ReadBytes<uint8>(reader);
+			return MetaEventData();
+		}
+		case 0x21:
+		{
+			debugLog << U"ポート指定";
+			ReadBytes<uint8>(reader);
+			/*const uint8 data =*/ ReadBytes<uint8>(reader);
+			return MetaEventData();
+		}
+		case 0x2f:
+		{
+			debugLog << U"end of track";
+			ReadBytes<uint8>(reader);
+			return MetaEventData::EndOfTrack();
+		}
+		case 0x51:
+		{
+			//debugLog << U"テンポ指定 at " << reader.getPos();
+			ReadBytes<uint8>(reader);//==3
 
-		const auto a = ReadBytes<uint8>(reader);
-		const auto b = ReadBytes<uint8>(reader);
-		const auto c = ReadBytes<uint8>(reader);
-		const auto microSecPerBeat = 1.0 * ((a << 16) + (b << 8) + c);
+			const auto a = ReadBytes<uint8>(reader);
+			const auto b = ReadBytes<uint8>(reader);
+			const auto c = ReadBytes<uint8>(reader);
+			const auto microSecPerBeat = 1.0 * ((a << 16) + (b << 8) + c);
 
-		const double bpm = 1.e6 * 60.0 / microSecPerBeat;
-		debugLog << U"テンポ: " << bpm;
-		return MetaEventData::SetTempo(bpm);
-	}
-	case 0x54:
-	{
-		debugLog << U"SMPTEオフセット";
-		ReadBytes<uint8>(reader);
-		ReadBytes<uint8>(reader);
-		ReadBytes<uint8>(reader);
-		ReadBytes<uint8>(reader);
-		ReadBytes<uint8>(reader);
-		ReadBytes<uint8>(reader);
-		return MetaEventData();
-	}
-	case 0x58:
-	{
-		//https://nekonenene.hatenablog.com/entry/2017/02/26/001351
-		//debugLog << U"拍子設定";
-		ReadBytes<uint8>(reader);
-		const uint8 numerator = ReadBytes<uint8>(reader);
-		const uint8 denominator = ReadBytes<uint8>(reader);
-		debugLog << U"拍子: " << numerator << U"/" << (1 << denominator);
-		ReadBytes<uint8>(reader);
-		ReadBytes<uint8>(reader);
-		return MetaEventData::SetMetre(numerator, (1 << denominator));
-	}
-	case 0x59:
-	{
-		debugLog << U"調号";
-		ReadBytes<uint8>(reader);
-		ReadBytes<uint8>(reader);
-		ReadBytes<uint8>(reader);
-		return MetaEventData();
-	}
-	case 0x7f:
-	{
-		debugLog << U"シーケンサ固有メタイベント";
-		const uint8 length = ReadBytes<uint8>(reader);
-		Array<uint8> data(length);
-		reader.read(data.data(), length);
-		return MetaEventData();
-	}
-	default:
-		debugLog << U" unknown metaEvent: " << metaEventType;
-		return MetaEventData::Error();
+			const double bpm = 1.e6 * 60.0 / microSecPerBeat;
+			debugLog << U"テンポ: " << bpm;
+			return MetaEventData::SetTempo(bpm);
+		}
+		case 0x54:
+		{
+			debugLog << U"SMPTEオフセット";
+			ReadBytes<uint8>(reader);
+			ReadBytes<uint8>(reader);
+			ReadBytes<uint8>(reader);
+			ReadBytes<uint8>(reader);
+			ReadBytes<uint8>(reader);
+			ReadBytes<uint8>(reader);
+			return MetaEventData();
+		}
+		case 0x58:
+		{
+			//https://nekonenene.hatenablog.com/entry/2017/02/26/001351
+			//debugLog << U"拍子設定";
+			ReadBytes<uint8>(reader);
+			const uint8 numerator = ReadBytes<uint8>(reader);
+			const uint8 denominator = ReadBytes<uint8>(reader);
+			debugLog << U"拍子: " << numerator << U"/" << (1 << denominator);
+			ReadBytes<uint8>(reader);
+			ReadBytes<uint8>(reader);
+			return MetaEventData::SetMetre(numerator, (1 << denominator));
+		}
+		case 0x59:
+		{
+			debugLog << U"調号";
+			ReadBytes<uint8>(reader);
+			ReadBytes<uint8>(reader);
+			ReadBytes<uint8>(reader);
+			return MetaEventData();
+		}
+		case 0x7f:
+		{
+			debugLog << U"シーケンサ固有メタイベント";
+			const uint8 length = ReadBytes<uint8>(reader);
+			Array<uint8> data(length);
+			reader.read(data.data(), length);
+			return MetaEventData();
+		}
+		default:
+			debugLog << U" unknown metaEvent: " << metaEventType;
+			return MetaEventData::Error();
+		}
 	}
 }
 
