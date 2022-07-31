@@ -583,25 +583,18 @@ Optional<MidiData> LoadMidi(FilePathView path)
 	}
 
 	const uint16 format = ReadBytes<uint16>(reader);
-	if (format != 1)
+	if ((format != 0) && (format != 1))
 	{
-		debugLog << U"error: format != 1";
+		debugLog << U"error: (format != 0) && (format != 1)";
 		return none;
 	}
+	debugLog << U"format: " << format;
 
 	uint16 trackCount = ReadBytes<uint16>(reader);
 	debugLog << U"tracks: " << trackCount;
-	//midiData.tracks.resize(trackCount);
 
 	const uint16 resolution = ReadBytes<uint16>(reader);
 	debugLog << U"resolution: " << resolution;
-	//midiData.resolution = resolution;
-	/*{
-		uint8 bytes[2] = {};
-		reader.read(bytes, 2);
-		resolution = (bytes[0] << 8) + (bytes[1] << 0);
-		debugLog << U"resolution : " << resolution;
-	}*/
 
 	Array<TrackData> tracks;
 
@@ -619,8 +612,6 @@ Optional<MidiData> LoadMidi(FilePathView path)
 		debugLog << U"trackLength: " << trackBytesLength;
 
 		Array<MidiCode> trackData;
-		//TrackData trackData;
-
 		//debugLog2 << U"track " << trackIndex;
 
 		uint32 currentTick = 0;
