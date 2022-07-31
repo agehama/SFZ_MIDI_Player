@@ -546,15 +546,18 @@ namespace
 		}
 		default:
 			debugLog << U" unknown metaEvent: " << metaEventType;
-			return MetaEventData::Error();
+			debugLog << U" テキストとして解釈します";
+			const auto text = ReadText(reader);
+			debugLog << Unicode::FromUTF8(text);
+			return MetaEventData();
 		}
 	}
 }
 
 Optional<MidiData> LoadMidi(FilePathView path)
 {
-	TextWriter debugLog(U"debugLog.txt");
-	TextWriter debugLog2(U"debugLog2.txt");
+	TextWriter debugLog(U"debug/debugLog.txt");
+	TextWriter debugLog2(U"debug/debugLog2.txt");
 	debugLog << U"open \"" << path << U"\"";
 	BinaryReader reader(path);
 
@@ -580,25 +583,18 @@ Optional<MidiData> LoadMidi(FilePathView path)
 	}
 
 	const uint16 format = ReadBytes<uint16>(reader);
-	if (format != 1)
+	if ((format != 0) && (format != 1))
 	{
-		debugLog << U"error: format != 1";
+		debugLog << U"error: (format != 0) && (format != 1)";
 		return none;
 	}
+	debugLog << U"format: " << format;
 
 	uint16 trackCount = ReadBytes<uint16>(reader);
 	debugLog << U"tracks: " << trackCount;
-	//midiData.tracks.resize(trackCount);
 
 	const uint16 resolution = ReadBytes<uint16>(reader);
 	debugLog << U"resolution: " << resolution;
-	//midiData.resolution = resolution;
-	/*{
-		uint8 bytes[2] = {};
-		reader.read(bytes, 2);
-		resolution = (bytes[0] << 8) + (bytes[1] << 0);
-		debugLog << U"resolution : " << resolution;
-	}*/
 
 	Array<TrackData> tracks;
 
@@ -616,11 +612,12 @@ Optional<MidiData> LoadMidi(FilePathView path)
 		debugLog << U"trackLength: " << trackBytesLength;
 
 		Array<MidiCode> trackData;
-		//TrackData trackData;
-
 		//debugLog2 << U"track " << trackIndex;
 
 		uint32 currentTick = 0;
+		uint8 prevOpCode = 0;
+
+		const int64 trackEndPos = reader.getPos() + trackBytesLength;
 
 		for (;;)
 		{
@@ -651,7 +648,16 @@ Optional<MidiData> LoadMidi(FilePathView path)
 			codeData.tick = currentTick;
 			//debugLog2 << U"measure: " << (tick / resolution + 1) << U", tick: " << tick % resolution << U" | " << tick;
 
-			const uint8 opcode = ReadBytes<uint8>(reader);
+			uint8 opcode = ReadBytes<uint8>(reader);
+
+			// ランニングステータス
+			if (opcode < 0x80)
+			{
+				opcode = prevOpCode;
+				reader.setPos(reader.getPos() - 1);
+			}
+
+			prevOpCode = opcode;
 
 			//if (0xFF != opcode)
 			{
@@ -741,6 +747,7 @@ Optional<MidiData> LoadMidi(FilePathView path)
 				if (result.isEndOfTrack())
 				{
 					trackData.push_back(codeData);
+					reader.setPos(trackEndPos);
 					break;
 				}
 				else if (result.isError())
