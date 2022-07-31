@@ -546,15 +546,18 @@ namespace
 		}
 		default:
 			debugLog << U" unknown metaEvent: " << metaEventType;
-			return MetaEventData::Error();
+			debugLog << U" テキストとして解釈します";
+			const auto text = ReadText(reader);
+			debugLog << Unicode::FromUTF8(text);
+			return MetaEventData();
 		}
 	}
 }
 
 Optional<MidiData> LoadMidi(FilePathView path)
 {
-	TextWriter debugLog(U"debugLog.txt");
-	TextWriter debugLog2(U"debugLog2.txt");
+	TextWriter debugLog(U"debug/debugLog.txt");
+	TextWriter debugLog2(U"debug/debugLog2.txt");
 	debugLog << U"open \"" << path << U"\"";
 	BinaryReader reader(path);
 
