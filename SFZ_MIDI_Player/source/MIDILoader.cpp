@@ -624,6 +624,7 @@ Optional<MidiData> LoadMidi(FilePathView path)
 		//debugLog2 << U"track " << trackIndex;
 
 		uint32 currentTick = 0;
+		uint8 prevOpCode = 0;
 
 		for (;;)
 		{
@@ -654,7 +655,16 @@ Optional<MidiData> LoadMidi(FilePathView path)
 			codeData.tick = currentTick;
 			//debugLog2 << U"measure: " << (tick / resolution + 1) << U", tick: " << tick % resolution << U" | " << tick;
 
-			const uint8 opcode = ReadBytes<uint8>(reader);
+			uint8 opcode = ReadBytes<uint8>(reader);
+
+			// ランニングステータス
+			if (opcode < 0x80)
+			{
+				opcode = prevOpCode;
+				reader.setPos(reader.getPos() - 1);
+			}
+
+			prevOpCode = opcode;
 
 			//if (0xFF != opcode)
 			{
