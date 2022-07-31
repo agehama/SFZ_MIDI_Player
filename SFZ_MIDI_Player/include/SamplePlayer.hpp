@@ -47,7 +47,7 @@ public:
 
 	void clearEvent();
 
-	Array<NoteEvent> addEvents(const MidiData& midiData);
+	Array<std::pair<uint8, NoteEvent>> addEvents(const MidiData& midiData);
 
 private:
 

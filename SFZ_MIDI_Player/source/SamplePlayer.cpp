@@ -431,13 +431,13 @@ void SamplePlayer::clearEvent()
 	}
 }
 
-Array<NoteEvent> SamplePlayer::addEvents(const MidiData& midiData)
+Array<std::pair<uint8, NoteEvent>> SamplePlayer::addEvents(const MidiData& midiData)
 {
 	clearEvent();
 
 	const auto tracks = midiData.notes();
 
-	Array<NoteEvent> results;
+	Array<std::pair<uint8, NoteEvent>> results;
 	for (const auto& [i, track] : Indexed(tracks))
 	{
 		if (i == 10)
@@ -462,7 +462,7 @@ Array<NoteEvent> SamplePlayer::addEvents(const MidiData& midiData)
 			const int64 releaseTimePos = static_cast<int64>(Math::Round(endSec * Wave::DefaultSampleRate));
 
 			const NoteEvent noteEvent = addEvent(note.key, note.velocity, pressTimePos, releaseTimePos);
-			results.push_back(noteEvent);
+			results.push_back(std::make_pair(note.key, noteEvent));
 		}
 	}
 
