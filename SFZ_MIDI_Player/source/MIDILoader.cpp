@@ -617,6 +617,8 @@ Optional<MidiData> LoadMidi(FilePathView path)
 		uint32 currentTick = 0;
 		uint8 prevOpCode = 0;
 
+		const int64 trackEndPos = reader.getPos() + trackBytesLength;
+
 		for (;;)
 		{
 			MidiCode codeData;
@@ -745,6 +747,7 @@ Optional<MidiData> LoadMidi(FilePathView path)
 				if (result.isEndOfTrack())
 				{
 					trackData.push_back(codeData);
+					reader.setPos(trackEndPos);
 					break;
 				}
 				else if (result.isError())
