@@ -103,6 +103,19 @@ void RegionSetting::debugPrint() const
 	Console << U"ampeg: " << Vec4(ampeg_attack, ampeg_decay, ampeg_sustain, ampeg_release);
 }
 
+String RemoveComment(const String& text)
+{
+	auto lines = text.split_lines();
+	for (auto& line : lines)
+	{
+		if (line.starts_with(U'/'))
+		{
+			line.clear();
+		}
+	}
+	return lines.join(U"\n", U"", U"");
+}
+
 SfzData LoadSfz(FilePathView sfzPath)
 {
 	assert(FileSystem::Exists(sfzPath));
@@ -129,11 +142,10 @@ SfzData LoadSfz(FilePathView sfzPath)
 	const String keyAmpegSustain = U"ampeg_sustain=";
 	const String keyAmpegRelease = U"ampeg_release=";
 	const String keyRtDecay = U"rt_decay=";
-	const String keyComment = U"//";
 
-	const auto text = sfzReader.readAll();
+	const auto text = RemoveComment(sfzReader.readAll());
 
-	const auto directory = FileSystem::ParentPath(sfzPath);;
+	const auto directory = FileSystem::ParentPath(sfzPath);
 
 	Array<RegionSetting> settings;
 	RegionSetting group;
@@ -147,10 +159,6 @@ SfzData LoadSfz(FilePathView sfzPath)
 		StringView token = text.substrView(pos, nextPos == String::npos ? nextPos : nextPos - pos);
 
 		if (token.empty()) {}
-		else if (token.starts_with(keyComment))
-		{
-			nextPos = text.indexOfAny(U"\n", pos);
-		}
 		else if (token.starts_with(keyRegion))
 		{
 			if (region)
