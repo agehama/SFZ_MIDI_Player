@@ -106,6 +106,7 @@ void RegionSetting::debugPrint() const
 String RemoveComment(const String& text)
 {
 	auto lines = text.split_lines();
+
 	for (auto& line : lines)
 	{
 		if (line.starts_with(U'/'))
@@ -113,7 +114,63 @@ String RemoveComment(const String& text)
 			line.clear();
 		}
 	}
+
 	return lines.join(U"\n", U"", U"");
+}
+
+String Preprocess(const String& text, const String& currentDirectory)
+{
+	const String keyInclude = U"#include";
+
+	String result;
+
+	size_t pos = 0;
+	for (;;)
+	{
+		size_t beginPos = text.indexOf(U'#', pos);
+
+		if (beginPos == String::npos)
+		{
+			result += text.substrView(pos);
+			break;
+		}
+
+		result += text.substrView(pos, beginPos - pos);
+		pos = beginPos;
+
+		StringView token = text.substrView(beginPos);
+
+		if (token.starts_with(keyInclude))
+		{
+			const size_t pathBegin = token.indexOf(U'\"', keyInclude.length());
+			const size_t pathEnd = token.indexOf(U'\"', pathBegin + 1);
+
+			const auto pathStr = token.substr(pathBegin + 1, pathEnd - pathBegin - 1);
+
+			const auto includePath = currentDirectory + pathStr;
+			Console << U"include \"" << includePath << U"\"";
+
+			assert(FileSystem::Exists(includePath));
+			if (!FileSystem::Exists(includePath))
+			{
+				Console << U"error";
+				return U"";
+			}
+
+			TextReader textReader(includePath);
+
+			result += Preprocess(RemoveComment(textReader.readAll()), currentDirectory);
+
+			pos += (pathEnd + 1);
+		}
+		else
+		{
+			result += U"#";
+			++pos;
+		}
+	}
+
+	return result;
 }
 
 SfzData LoadSfz(FilePathView sfzPath)
@@ -143,9 +200,8 @@ SfzData LoadSfz(FilePathView sfzPath)
 	const String keyAmpegRelease = U"ampeg_release=";
 	const String keyRtDecay = U"rt_decay=";
 
-	const auto text = RemoveComment(sfzReader.readAll());
-
 	const auto directory = FileSystem::ParentPath(sfzPath);
+	const auto text = Preprocess(RemoveComment(sfzReader.readAll()), directory);
 
 	Array<RegionSetting> settings;
 	RegionSetting group;
