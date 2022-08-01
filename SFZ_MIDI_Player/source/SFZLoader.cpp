@@ -118,16 +118,36 @@ String RemoveComment(const String& text)
 	return lines.join(U"\n", U"", U"");
 }
 
-String Preprocess(const String& text, const String& currentDirectory)
+std::pair<String, String> splitDefine(StringView defineLine, size_t& endPos)
+{
+	const String keyDefine = U"#define";
+
+	const size_t nameBegin = defineLine.indexOf(U'$');
+	const size_t nameEnd = defineLine.indexOfAny(U" \t", nameBegin);
+	const size_t valueBegin = defineLine.indexNotOfAny(U" \t", nameEnd);
+	const size_t valueEnd = Min(defineLine.indexOfAny(U" \t\n", valueBegin), defineLine.length());
+
+	const String name(defineLine.substr(nameBegin, nameEnd - nameBegin));
+	const String value(defineLine.substr(valueBegin, valueEnd - valueBegin));
+
+	endPos = valueEnd;
+
+	//Console << U"(" << defineLine << U") => {" << name << U": " << value << U"}";
+
+	return std::make_pair(name, value.ltrimmed());
+}
+
+String Preprocess(const String& text, const String& currentDirectory, HashTable<String, String>& macroDefinitions)
 {
 	const String keyInclude = U"#include";
+	const String keyDefine = U"#define";
 
 	String result;
 
 	size_t pos = 0;
 	for (;;)
 	{
-		size_t beginPos = text.indexOf(U'#', pos);
+		size_t beginPos = text.indexOfAny(U"#$", pos);
 
 		if (beginPos == String::npos)
 		{
@@ -140,33 +160,67 @@ String Preprocess(const String& text, const String& currentDirectory)
 
 		StringView token = text.substrView(beginPos);
 
-		if (token.starts_with(keyInclude))
+		if (text[beginPos] == U'#')
 		{
-			const size_t pathBegin = token.indexOf(U'\"', keyInclude.length());
-			const size_t pathEnd = token.indexOf(U'\"', pathBegin + 1);
-
-			const auto pathStr = token.substr(pathBegin + 1, pathEnd - pathBegin - 1);
-
-			const auto includePath = currentDirectory + pathStr;
-			Console << U"include \"" << includePath << U"\"";
-
-			assert(FileSystem::Exists(includePath));
-			if (!FileSystem::Exists(includePath))
+			if (token.starts_with(keyInclude))
 			{
-				Console << U"error";
+				const size_t pathBegin = token.indexOf(U'\"', keyInclude.length());
+				const size_t pathEnd = token.indexOf(U'\"', pathBegin + 1);
+
+				const auto pathStr = token.substr(pathBegin + 1, pathEnd - pathBegin - 1);
+
+				const auto includePath = currentDirectory + pathStr;
+				//Console << U"include \"" << includePath << U"\"";
+
+				assert(FileSystem::Exists(includePath));
+				if (!FileSystem::Exists(includePath))
+				{
+					Console << U"error: include file \"" << includePath << U"\" does not exist";
+					return U"";
+				}
+
+				TextReader textReader(includePath);
+
+				result += Preprocess(RemoveComment(textReader.readAll()), currentDirectory, macroDefinitions);
+
+				pos += (pathEnd + 1);
+			}
+			else if (token.starts_with(keyDefine))
+			{
+				size_t endPos = 0;
+				const auto [name, value] = splitDefine(token, endPos);
+				pos += endPos;
+
+				//Console << U"define " << name << U"=>" << value;
+				macroDefinitions[name] = value;
+			}
+			else
+			{
+				result += U"#";
+				++pos;
+			}
+		}
+		else if (text[beginPos] == U'$')
+		{
+			const size_t nameBegin = 1;
+			const size_t nameEnd = Min(token.indexNotOfAny(U"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_", nameBegin), token.length());
+
+			StringView varName = token.substr(0, nameEnd);
+
+			if (!macroDefinitions.contains(varName))
+			{
+				Console << U"token: " << token;
+				Console << U"error: (" << varName << U") not defined ";
 				return U"";
+
+				result += Format(U"($", varName, U": not defined)");
+			}
+			else
+			{
+				result += macroDefinitions[varName];
 			}
 
-			TextReader textReader(includePath);
-
-			result += Preprocess(RemoveComment(textReader.readAll()), currentDirectory);
-
-			pos += (pathEnd + 1);
-		}
-		else
-		{
-			result += U"#";
-			++pos;
+			pos += nameEnd;
 		}
 	}
 
@@ -201,7 +255,9 @@ SfzData LoadSfz(FilePathView sfzPath)
 	const String keyRtDecay = U"rt_decay=";
 
 	const auto directory = FileSystem::ParentPath(sfzPath);
-	const auto text = Preprocess(RemoveComment(sfzReader.readAll()), directory);
+
+	HashTable<String, String> macroDefinitions;
+	const auto text = Preprocess(RemoveComment(sfzReader.readAll()), directory, macroDefinitions);
 
 	Array<RegionSetting> settings;
 	RegionSetting group;
