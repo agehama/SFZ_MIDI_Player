@@ -253,11 +253,13 @@ SfzData LoadSfz(FilePathView sfzPath)
 	const String keyAmpegSustain = U"ampeg_sustain=";
 	const String keyAmpegRelease = U"ampeg_release=";
 	const String keyRtDecay = U"rt_decay=";
+	const String keyDefaultPath = U"default_path=";
 
-	const auto directory = FileSystem::ParentPath(sfzPath);
+	const auto parentDirectory = FileSystem::ParentPath(sfzPath);
+	String defaultPath = parentDirectory;
 
 	HashTable<String, String> macroDefinitions;
-	const auto text = Preprocess(RemoveComment(sfzReader.readAll()), directory, macroDefinitions);
+	const auto text = Preprocess(RemoveComment(sfzReader.readAll()), parentDirectory, macroDefinitions);
 
 	Array<RegionSetting> settings;
 	RegionSetting group;
@@ -270,7 +272,9 @@ SfzData LoadSfz(FilePathView sfzPath)
 
 		StringView token = text.substrView(pos, nextPos == String::npos ? nextPos : nextPos - pos);
 
-		if (token.empty()) {}
+		if (token.empty())
+		{
+		}
 		else if (token.starts_with(keyRegion))
 		{
 			if (region)
@@ -283,7 +287,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 		else if (token.starts_with(keySample))
 		{
 			token = token.substr(keySample.length());
-			if (!FileSystem::Exists(directory + token))
+			if (!FileSystem::Exists(defaultPath + token))
 			{
 				pos += keySample.length();
 				// sampleの場合は空白文字を含める
@@ -300,6 +304,10 @@ SfzData LoadSfz(FilePathView sfzPath)
 		else if (token.starts_with(keyHivel))
 		{
 			(region ? region.value() : group).hivel = ParseInt<uint8>(token.substr(keyHivel.length()));
+		}
+		else if (token.starts_with(keyDefaultPath))
+		{
+			defaultPath = parentDirectory + token.substr(keyDefaultPath.length());
 		}
 		else if (token.starts_with(keyKey))
 		{
@@ -440,7 +448,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 	//}
 
 	SfzData sfzData;
-	sfzData.dir = directory;
+	sfzData.dir = defaultPath;
 	sfzData.data = std::move(settings);
 
 	return sfzData;
