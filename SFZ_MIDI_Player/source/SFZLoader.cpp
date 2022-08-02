@@ -103,6 +103,130 @@ void RegionSetting::debugPrint() const
 	Console << U"ampeg: " << Vec4(ampeg_attack, ampeg_decay, ampeg_sustain, ampeg_release);
 }
 
+String RemoveComment(const String& text)
+{
+	auto lines = text.split_lines();
+
+	for (auto& line : lines)
+	{
+		if (line.starts_with(U'/'))
+		{
+			line.clear();
+		}
+	}
+
+	return lines.join(U"\n", U"", U"");
+}
+
+std::pair<String, String> splitDefine(StringView defineLine, size_t& endPos)
+{
+	const String keyDefine = U"#define";
+
+	const size_t nameBegin = defineLine.indexOf(U'$');
+	const size_t nameEnd = defineLine.indexOfAny(U" \t", nameBegin);
+	const size_t valueBegin = defineLine.indexNotOfAny(U" \t", nameEnd);
+	const size_t valueEnd = Min(defineLine.indexOfAny(U" \t\n", valueBegin), defineLine.length());
+
+	const String name(defineLine.substr(nameBegin, nameEnd - nameBegin));
+	const String value(defineLine.substr(valueBegin, valueEnd - valueBegin));
+
+	endPos = valueEnd;
+
+	//Console << U"(" << defineLine << U") => {" << name << U": " << value << U"}";
+
+	return std::make_pair(name, value.ltrimmed());
+}
+
+String Preprocess(const String& text, const String& currentDirectory, HashTable<String, String>& macroDefinitions)
+{
+	const String keyInclude = U"#include";
+	const String keyDefine = U"#define";
+
+	String result;
+
+	size_t pos = 0;
+	for (;;)
+	{
+		size_t beginPos = text.indexOfAny(U"#$", pos);
+
+		if (beginPos == String::npos)
+		{
+			result += text.substrView(pos);
+			break;
+		}
+
+		result += text.substrView(pos, beginPos - pos);
+		pos = beginPos;
+
+		StringView token = text.substrView(beginPos);
+
+		if (text[beginPos] == U'#')
+		{
+			if (token.starts_with(keyInclude))
+			{
+				const size_t pathBegin = token.indexOf(U'\"', keyInclude.length());
+				const size_t pathEnd = token.indexOf(U'\"', pathBegin + 1);
+
+				const auto pathStr = token.substr(pathBegin + 1, pathEnd - pathBegin - 1);
+
+				const auto includePath = currentDirectory + pathStr;
+				//Console << U"include \"" << includePath << U"\"";
+
+				assert(FileSystem::Exists(includePath));
+				if (!FileSystem::Exists(includePath))
+				{
+					Console << U"error: include file \"" << includePath << U"\" does not exist";
+					return U"";
+				}
+
+				TextReader textReader(includePath);
+
+				result += Preprocess(RemoveComment(textReader.readAll()), currentDirectory, macroDefinitions);
+
+				pos += (pathEnd + 1);
+			}
+			else if (token.starts_with(keyDefine))
+			{
+				size_t endPos = 0;
+				const auto [name, value] = splitDefine(token, endPos);
+				pos += endPos;
+
+				//Console << U"define " << name << U"=>" << value;
+				macroDefinitions[name] = value;
+			}
+			else
+			{
+				result += U"#";
+				++pos;
+			}
+		}
+		else if (text[beginPos] == U'$')
+		{
+			const size_t nameBegin = 1;
+			const size_t nameEnd = Min(token.indexNotOfAny(U"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_", nameBegin), token.length());
+
+			StringView varName = token.substr(0, nameEnd);
+
+			if (!macroDefinitions.contains(varName))
+			{
+				Console << U"token: " << token;
+				Console << U"error: (" << varName << U") not defined ";
+				return U"";
+
+				result += Format(U"($", varName, U": not defined)");
+			}
+			else
+			{
+				result += macroDefinitions[varName];
+			}
+
+			pos += nameEnd;
+		}
+	}
+
+	return result;
+}
+
 SfzData LoadSfz(FilePathView sfzPath)
 {
 	assert(FileSystem::Exists(sfzPath));
@@ -129,11 +253,13 @@ SfzData LoadSfz(FilePathView sfzPath)
 	const String keyAmpegSustain = U"ampeg_sustain=";
 	const String keyAmpegRelease = U"ampeg_release=";
 	const String keyRtDecay = U"rt_decay=";
-	const String keyComment = U"//";
+	const String keyDefaultPath = U"default_path=";
 
-	const auto text = sfzReader.readAll();
+	const auto parentDirectory = FileSystem::ParentPath(sfzPath);
+	String defaultPath = parentDirectory;
 
-	const auto directory = FileSystem::ParentPath(sfzPath);;
+	HashTable<String, String> macroDefinitions;
+	const auto text = Preprocess(RemoveComment(sfzReader.readAll()), parentDirectory, macroDefinitions);
 
 	Array<RegionSetting> settings;
 	RegionSetting group;
@@ -146,10 +272,8 @@ SfzData LoadSfz(FilePathView sfzPath)
 
 		StringView token = text.substrView(pos, nextPos == String::npos ? nextPos : nextPos - pos);
 
-		if (token.empty()) {}
-		else if (token.starts_with(keyComment))
+		if (token.empty())
 		{
-			nextPos = text.indexOfAny(U"\n", pos);
 		}
 		else if (token.starts_with(keyRegion))
 		{
@@ -163,7 +287,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 		else if (token.starts_with(keySample))
 		{
 			token = token.substr(keySample.length());
-			if (!FileSystem::Exists(directory + token))
+			if (!FileSystem::Exists(defaultPath + token))
 			{
 				pos += keySample.length();
 				// sampleの場合は空白文字を含める
@@ -180,6 +304,10 @@ SfzData LoadSfz(FilePathView sfzPath)
 		else if (token.starts_with(keyHivel))
 		{
 			(region ? region.value() : group).hivel = ParseInt<uint8>(token.substr(keyHivel.length()));
+		}
+		else if (token.starts_with(keyDefaultPath))
+		{
+			defaultPath = parentDirectory + token.substr(keyDefaultPath.length());
 		}
 		else if (token.starts_with(keyKey))
 		{
@@ -320,7 +448,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 	//}
 
 	SfzData sfzData;
-	sfzData.dir = directory;
+	sfzData.dir = defaultPath;
 	sfzData.data = std::move(settings);
 
 	return sfzData;
