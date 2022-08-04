@@ -57,18 +57,59 @@ private:
 	double m_releaseTime = 0;
 };
 
+class AudioLoadManager
+{
+public:
+
+	static AudioLoadManager& i()
+	{
+		static AudioLoadManager obj;
+		return obj;
+	}
+
+	size_t load(FilePathView path)
+	{
+		for (auto [i, wavePath]: Indexed(m_paths))
+		{
+			if (wavePath == path)
+			{
+				return i;
+			}
+		}
+
+		const auto i = m_paths.size();
+		m_paths.emplace_back(path);
+		m_waves.emplace_back(path);
+
+		return i;
+	}
+
+	const Wave& wave(size_t index) const
+	{
+		return m_waves[index];
+	}
+
+private:
+
+	AudioLoadManager() = default;
+
+	Array<Wave> m_waves;
+	Array<String> m_paths;
+};
+
 // 1つのソース音源に対応
 struct AudioSource
 {
 public:
 
-	AudioSource(const Wave& wave, const Envelope& envelope, uint8 lovel, uint8 hivel, int32 tune):
+	AudioSource(size_t waveIndex, float amplitude, const Envelope& envelope, uint8 lovel, uint8 hivel, int32 tune):
+		m_index(waveIndex),
+		m_amplitude(amplitude),
 		m_lovel(lovel),
 		m_hivel(hivel),
 		m_tune(tune),
 		m_envelope(envelope)
 	{
-		initTuneWave(wave);
 	}
 
 	bool isValidVelocity(uint8 velocity) const
@@ -78,18 +119,25 @@ public:
 
 	void setRtDecay(float rtDecay);
 
-	const Wave& wave() const { return m_wave; }
+	size_t sampleRate() const;
+
+	size_t lengthSample() const;
+
+	WaveSample getSample(int64 index) const;
 
 	const Envelope& envelope() const { return m_envelope; }
 
 private:
 
-	void initTuneWave(const Wave& originalWave);
+	size_t m_index;
+
+	const Wave& getWave() const { return AudioLoadManager::i().wave(m_index); }
+
+	float m_amplitude;
 
 	int32 m_tune;// 100 == 1 semitone
-	float m_rtDecay = 0;
+	Optional<float> m_rtDecay;
 
-	Wave m_wave;
 	uint8 m_lovel;
 	uint8 m_hivel;
 	Envelope m_envelope;

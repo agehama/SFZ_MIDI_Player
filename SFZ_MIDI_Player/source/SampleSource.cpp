@@ -43,33 +43,53 @@ double Envelope::level(double noteOnTime, double noteOffTime, double time) const
 	return m_sustainLevel;
 }
 
-void AudioSource::initTuneWave(const Wave& originalWave)
-{
-	const double speed = std::exp2(m_tune / 1200.0);
-	const double scale = 1.0 / speed;
-	const auto sampleCount = static_cast<int64>(Math::Ceil(originalWave.lengthSample() * scale));
-
-	m_wave = Wave(sampleCount);
-	for (auto i : step(sampleCount))
-	{
-		const double readIndex = i * speed;
-		const auto prevIndex = static_cast<int64>(Floor(readIndex));
-		const auto nextIndex = Min(static_cast<int64>(Ceil(readIndex)), static_cast<int64>(originalWave.size() - 1));
-		const double t = Math::Fmod(readIndex, 1.0);
-		m_wave[i] = originalWave[prevIndex].lerp(originalWave[nextIndex], t);
-	}
-}
-
 void AudioSource::setRtDecay(float rtDecay)
 {
 	m_rtDecay = rtDecay;
-	for (auto [i, sample] : IndexedRef(m_wave))
+}
+
+size_t AudioSource::sampleRate() const
+{
+	return getWave().sampleRate();
+}
+
+size_t AudioSource::lengthSample() const
+{
+	const auto& sourceWave = getWave();
+
+	const double speed = std::exp2(m_tune / 1200.0);
+	const double scale = 1.0 / speed;
+	const auto sampleCount = static_cast<size_t>(Math::Ceil(sourceWave.lengthSample() * scale));
+
+	return sampleCount;
+}
+
+WaveSample AudioSource::getSample(int64 index) const
+{
+	const auto& sourceWave = getWave();
+
+	float amplitude = m_amplitude;
+	if (m_rtDecay)
 	{
-		const double seconds = 1.0 * i / m_wave.sampleRate();
-		const double currentVolume = -seconds * m_rtDecay;
+		const double seconds = 1.0 * index / sourceWave.sampleRate();
+		const double currentVolume = -seconds * m_rtDecay.value();
 		const float scale = static_cast<float>(std::pow(10.0, currentVolume / 20.0) * 0.5);
-		sample *= scale;
+		amplitude *= scale;
 	}
+
+	if (m_tune == 0)
+	{
+		return sourceWave[index] * amplitude;
+	}
+
+	const double speed = std::exp2(m_tune / 1200.0);
+
+	const double readIndex = index * speed;
+	const auto prevIndex = static_cast<int64>(Floor(readIndex));
+	const auto nextIndex = Min(static_cast<int64>(Ceil(readIndex)), static_cast<int64>(sourceWave.size() - 1));
+	const double t = Math::Fmod(readIndex, 1.0);
+
+	return sourceWave[prevIndex].lerp(sourceWave[nextIndex], t) * amplitude;
 }
 
 void AudioKey::init(int8 key)
@@ -219,8 +239,8 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 		return;
 	}
 
-	const auto& sourceWave = attackKeys[targetEvent.attackIndex].wave();
-	const auto& envelope = attackKeys[targetEvent.attackIndex].envelope();
+	const auto& attackKey = attackKeys[targetEvent.attackIndex];
+	const auto& envelope = attackKey.envelope();
 
 	//const auto waveStartPos = Max(0ll, startPos - targetEvent.pressTimePos);
 	//const auto maxGateSamples = noteIndex + 1 < m_noteEvents.size() ? m_noteEvents[noteIndex + 1].pressTimePos - targetEvent.pressTimePos : static_cast<int64>(sourceWave.lengthSample());
@@ -263,10 +283,10 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 		const int64 readIndex = i;
 		//const int64 readIndex = startIndex + j;
 		const int64 writeIndex = writeIndexHead + i;
-		const double time = 1.0 * (startPos + writeIndex) / sourceWave.sampleRate();
+		const double time = 1.0 * (startPos + writeIndex) / attackKey.sampleRate();
 		const double currentLevel = envelope.level(targetEvent, time) * currentVolume;
 
-		if (1.0 * targetEvent.releaseTimePos / sourceWave.sampleRate() + envelope.noteTime(targetEvent) < time)
+		if (1.0 * targetEvent.releaseTimePos / attackKey.sampleRate() + envelope.noteTime(targetEvent) < time)
 		{
 			break;
 		}
@@ -275,7 +295,7 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 		if (1 <= noteIndex && blendIndex < BlendSampleCount)
 		{
 			const auto& prevEvent = m_noteEvents[noteIndex - 1];
-			const auto& prevWave = attackKeys[prevEvent.attackIndex].wave();
+			const auto& prevAttackKey = attackKeys[prevEvent.attackIndex];
 			const auto [prevReadCount, prevEmptyCount] = readEmptyCount(startPos, sampleCount, noteIndex - 1);
 
 			const double prevVolume = prevEvent.velocity / 127.0;
@@ -286,8 +306,8 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 			//Console << U"  " << Vec3(prevEvent.pressTime, prevEvent.releaseTime, time) << U"" << U" -> " << prevLevel;
 
 			const int64 prevReadIndex = prevWriteCount + i;
-			const auto sample0 = (prevReadIndex < static_cast<int64>(prevWave.size()) ? prevWave[prevReadIndex] : WaveSample::Zero()) * static_cast<float>(prevLevel);
-			const auto sample1 = sourceWave[readIndex] * static_cast<float>(currentLevel);
+			const auto sample0 = (prevReadIndex < static_cast<int64>(prevAttackKey.lengthSample()) ? prevAttackKey.getSample(prevReadIndex) : WaveSample::Zero()) * static_cast<float>(prevLevel);
+			const auto sample1 = attackKey.getSample(readIndex) * static_cast<float>(currentLevel);
 			const double t = 1.0 * blendIndex / BlendSampleCount;
 			const auto blendSample = sample0.lerp(sample1, t);
 			left[writeIndex] += blendSample.left;
@@ -295,7 +315,7 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 		}
 		else
 		{
-			const auto sample1 = sourceWave[readIndex] * static_cast<float>(currentLevel);
+			const auto sample1 = attackKey.getSample(readIndex) * static_cast<float>(currentLevel);
 			left[writeIndex] += sample1.left;
 			right[writeIndex] += sample1.right;
 		}
@@ -313,7 +333,7 @@ void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sa
 		return;
 	}
 
-	const auto& sourceWave = releaseKeys[targetEvent.releaseIndex].wave();
+	const auto& releaseKey = releaseKeys[targetEvent.releaseIndex];
 
 	//const auto waveStartPos = Max(0ll, startPos - targetEvent.releaseTimePos);
 	//const auto maxGateSamples = noteIndex + 1 < static_cast<int64>(m_noteEvents.size()) ? m_noteEvents[noteIndex + 1].pressTimePos - targetEvent.releaseTimePos : static_cast<int64>(sourceWave.lengthSample());
@@ -359,7 +379,7 @@ void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sa
 		{
 			const auto& prevEvent = m_noteEvents[noteIndex - 1];
 
-			const auto& prevWave = releaseKeys[prevEvent.releaseIndex].wave();
+			const auto& prevReleaseKey = releaseKeys[prevEvent.releaseIndex];
 			const auto [prevReadCount, prevEmptyCount] = readEmptyCountRelease(startPos, sampleCount, noteIndex - 1);
 
 			//const double prevVolume = 1;
@@ -370,8 +390,8 @@ void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sa
 			//Console << U"  " << Vec3(prevEvent.pressTime, prevEvent.releaseTime, time) << U"" << U" -> " << prevLevel;
 
 			const int64 prevReadIndex = prevWriteCount + i;
-			const auto sample0 = (prevReadIndex < static_cast<int64>(prevWave.size()) ? prevWave[prevReadIndex] : WaveSample::Zero());
-			const auto sample1 = sourceWave[readIndex];
+			const auto sample0 = (prevReadIndex < static_cast<int64>(prevReleaseKey.lengthSample()) ? prevReleaseKey.getSample(prevReadIndex) : WaveSample::Zero());
+			const auto sample1 = releaseKey.getSample(readIndex);
 			const double t = 1.0 * blendIndex / BlendSampleCount;
 			const auto blendSample = sample0.lerp(sample1, t);
 			left[writeIndex] += blendSample.left;
@@ -379,7 +399,7 @@ void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sa
 		}
 		else
 		{
-			const auto sample1 = sourceWave[readIndex];
+			const auto sample1 = releaseKey.getSample(readIndex);
 			left[writeIndex] += sample1.left;
 			right[writeIndex] += sample1.right;
 		}
@@ -400,9 +420,9 @@ int64 AudioKey::getWriteIndexHead(int64 startPos, int64 noteIndex) const
 std::pair<int64, int64> AudioKey::readEmptyCount(int64 startPos, int64 sampleCount, int64 noteIndex) const
 {
 	const auto& targetEvent = m_noteEvents[noteIndex];
-	const auto& sourceWave = attackKeys[targetEvent.attackIndex].wave();
-	const auto maxGateSamples = noteIndex + 1 < static_cast<int64>(m_noteEvents.size()) ? m_noteEvents[noteIndex + 1].pressTimePos - m_noteEvents[noteIndex].pressTimePos : static_cast<int64>(sourceWave.lengthSample());
-	const auto maxReadCount = Min(static_cast<int64>(sourceWave.lengthSample()), maxGateSamples);
+	const auto& attackKey = attackKeys[targetEvent.attackIndex];
+	const auto maxGateSamples = noteIndex + 1 < static_cast<int64>(m_noteEvents.size()) ? m_noteEvents[noteIndex + 1].pressTimePos - m_noteEvents[noteIndex].pressTimePos : static_cast<int64>(attackKey.lengthSample());
+	const auto maxReadCount = Min(static_cast<int64>(attackKey.lengthSample()), maxGateSamples);
 	const int64 writeIndexHead = getWriteIndexHead(startPos, noteIndex);
 
 	const auto maxWriteCount = sampleCount - writeIndexHead;
@@ -426,9 +446,9 @@ int64 AudioKey::getWriteIndexHeadRelease(int64 startPos, int64 noteIndex) const
 std::pair<int64, int64> AudioKey::readEmptyCountRelease(int64 startPos, int64 sampleCount, int64 noteIndex) const
 {
 	const auto& targetEvent = m_noteEvents[noteIndex];
-	const auto& sourceWave = releaseKeys[targetEvent.releaseIndex].wave();
-	const auto maxGateSamples = noteIndex + 1 < static_cast<int64>(m_noteEvents.size()) ? m_noteEvents[noteIndex + 1].releaseTimePos - m_noteEvents[noteIndex].pressTimePos : static_cast<int64>(sourceWave.lengthSample());
-	const auto maxReadCount = Min(static_cast<int64>(sourceWave.lengthSample()), maxGateSamples);
+	const auto& releaseKey = releaseKeys[targetEvent.releaseIndex];
+	const auto maxGateSamples = noteIndex + 1 < static_cast<int64>(m_noteEvents.size()) ? m_noteEvents[noteIndex + 1].releaseTimePos - m_noteEvents[noteIndex].pressTimePos : static_cast<int64>(releaseKey.lengthSample());
+	const auto maxReadCount = Min(static_cast<int64>(releaseKey.lengthSample()), maxGateSamples);
 	const int64 writeIndexHead = getWriteIndexHeadRelease(startPos, noteIndex);
 
 	const auto maxWriteCount = sampleCount - writeIndexHead;
