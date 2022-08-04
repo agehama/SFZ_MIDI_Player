@@ -64,15 +64,6 @@ Wave SetSpeedWave(const Wave& original, int semitone)
 	return wave;
 }
 
-void SetVolume(Wave& wave, double volume)
-{
-	const float scale = static_cast<float>(std::pow(10.0, volume / 20.0) * 0.5);
-	for (auto& sample : wave)
-	{
-		sample *= scale;
-	}
-}
-
 void SamplePlayer::loadData(const SfzData& sfzData)
 {
 	if (m_audioKeys.size() != 255)
@@ -99,8 +90,9 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 
 		const Envelope envelope(data.ampeg_attack, data.ampeg_decay, data.ampeg_sustain / 100.0, data.ampeg_release);
 
-		Wave originalWave(samplePath);
-		SetVolume(originalWave, data.volume);
+		const size_t waveIndex = AudioLoadManager::i().load(samplePath);
+		const float volume = data.volume;
+		const float amplitude = static_cast<float>(std::pow(10.0, volume / 20.0) * 0.5);
 
 		const int32 loIndex = data.lokey + 127;
 		const int32 hiIndex = data.hikey + 127;
@@ -110,7 +102,7 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 			const int32 key = index - 127;
 			const int32 tune = (key - data.pitch_keycenter) * 100 + data.tune;
 
-			AudioSource source(originalWave, envelope, data.lovel, data.hivel, tune);
+			AudioSource source(waveIndex, amplitude, envelope, data.lovel, data.hivel, tune);
 
 			if (data.trigger == Trigger::Attack)
 			{
