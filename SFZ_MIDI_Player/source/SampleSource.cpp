@@ -130,6 +130,8 @@ void WaveReader::init()
 
 void WaveReader::use()
 {
+	m_unuseCount = 0;
+
 	if (m_use)
 	{
 		return;
@@ -162,13 +164,20 @@ void WaveReader::update()
 {
 	m_mutex.lock();
 
+	++m_unuseCount;
+	if (m_use && 60 < m_unuseCount)
+	{
+		unuse();
+	}
+
 	if (m_use)
 	{
 		readBlock();
 	}
-	else
+	else if(!m_readBuffer.empty())
 	{
 		m_readBuffer.clear();
+		m_readBuffer.shrink_to_fit();
 		m_waveReader.setPos(m_dataPos);
 		m_loadSampleCount = 0;
 	}
@@ -415,7 +424,6 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 	}
 
 	auto& attackKey = attackKeys[targetEvent.attackIndex];
-	attackKey.use();
 
 	const auto& envelope = attackKey.envelope();
 
@@ -467,6 +475,8 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 		{
 			break;
 		}
+
+		attackKey.use();
 
 		const auto blendIndex = (startPos + writeIndex) - targetEvent.pressTimePos;
 		if (1 <= noteIndex && blendIndex < BlendSampleCount)

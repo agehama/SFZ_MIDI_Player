@@ -115,6 +115,7 @@ private:
 	bool m_readFormat = false;
 	float m_normalize = 0;
 
+	uint32 m_unuseCount = 0;
 	bool m_use = false;
 	size_t m_loadSampleCount = 0;
 	Array<Sample16bit2ch> m_readBuffer;

@@ -40,6 +40,8 @@ void Main()
 
 	while (System::Update())
 	{
+		AudioLoadManager::i().update();
+
 		if (DragDrop::HasNewFilePaths())
 		{
 			const auto filepath = DragDrop::GetDroppedFilePaths().front();
