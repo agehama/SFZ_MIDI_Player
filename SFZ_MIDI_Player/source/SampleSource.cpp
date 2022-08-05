@@ -139,7 +139,7 @@ void WaveReader::use()
 
 	{
 		m_loadSampleCount = 0;
-
+		m_readBuffer.resize(m_dataSize);
 		if (m_waveReader.getPos() != m_dataPos)
 		{
 			m_waveReader.setPos(m_dataPos);
@@ -185,7 +185,7 @@ WaveSample WaveReader::getSample(int64 index) const
 
 void WaveReader::readBlock()
 {
-	size_t readCount = 512;
+	size_t readCount = 4096;
 	if (m_dataSize <= m_loadSampleCount + readCount)
 	{
 		readCount = m_loadSampleCount - m_dataSize;
