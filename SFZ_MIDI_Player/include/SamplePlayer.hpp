@@ -43,7 +43,7 @@ public:
 
 	void deleteDuplicate();
 
-	void getSamples(float* left, float* right, int64 startPos, int64 sampleCount) const;
+	void getSamples(float* left, float* right, int64 startPos, int64 sampleCount);
 
 	void clearEvent();
 

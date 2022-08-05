@@ -57,6 +57,70 @@ private:
 	double m_releaseTime = 0;
 };
 
+struct WaveFileFormat
+{
+	uint16 audioFormat;
+	uint16 channels;
+	uint32 samplePerSecond;
+	uint32 bytesPerSecond;
+	uint16 blockAlign;
+	uint16 bitsPerSample;
+};
+
+struct Sample16bit2ch
+{
+	int16 left;
+	int16 right;
+};
+
+class WaveReader
+{
+public:
+
+	WaveReader(FilePathView path) :
+		m_waveReader(path)
+	{
+		init();
+	}
+
+	WaveReader(const WaveReader&) = default;
+
+	size_t size() const { return m_dataSize; }
+
+	size_t sampleRate() const { return m_sampleRate; }
+
+	size_t lengthSample() const { return m_lengthSample; }
+
+	void use();
+
+	void unuse();
+
+	void update();
+
+	WaveSample getSample(int64 index) const;
+
+private:
+
+	void init();
+
+	void readBlock();
+
+	BinaryReader m_waveReader;
+
+	WaveFileFormat m_format = {};
+	int64 m_dataPos = 0;
+	size_t m_dataSize = 0;
+	size_t m_sampleRate = 0;
+	size_t m_lengthSample = 0;
+	bool m_readFormat = false;
+	float m_normalize = 0;
+
+	bool m_use = false;
+	size_t m_loadSampleCount = 0;
+	Array<Sample16bit2ch> m_readBuffer;
+	static std::mutex m_mutex;
+};
+
 class AudioLoadManager
 {
 public:
@@ -79,21 +143,28 @@ public:
 
 		const auto i = m_paths.size();
 		m_paths.emplace_back(path);
-		m_waves.emplace_back(path);
+		m_waveReaders.emplace_back(path);
 
 		return i;
 	}
 
-	const Wave& wave(size_t index) const
+	void update();
+
+	const WaveReader& reader(size_t index) const
 	{
-		return m_waves[index];
+		return m_waveReaders[index];
+	}
+
+	WaveReader& reader(size_t index)
+	{
+		return m_waveReaders[index];
 	}
 
 private:
 
 	AudioLoadManager() = default;
 
-	Array<Wave> m_waves;
+	Array<WaveReader> m_waveReaders;
 	Array<String> m_paths;
 };
 
@@ -127,11 +198,16 @@ public:
 
 	const Envelope& envelope() const { return m_envelope; }
 
+	void use();
+
+	void unuse();
+
 private:
 
 	size_t m_index;
 
-	const Wave& getWave() const { return AudioLoadManager::i().wave(m_index); }
+	const WaveReader& getReader() const { return AudioLoadManager::i().reader(m_index); }
+	WaveReader& getReader() { return AudioLoadManager::i().reader(m_index); }
 
 	float m_amplitude;
 
@@ -170,7 +246,7 @@ public:
 
 	void deleteDuplicate();
 
-	void getSamples(float* left, float* right, int64 startPos, int64 sampleCount) const;
+	void getSamples(float* left, float* right, int64 startPos, int64 sampleCount);
 
 private:
 
@@ -180,9 +256,9 @@ private:
 	Array<AudioSource> releaseKeys;
 	Array<NoteEvent> m_noteEvents;
 
-	void render(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex) const;
+	void render(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex);
 
-	void renderRelease(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex) const;
+	void renderRelease(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex);
 
 	int64 getWriteIndexHead(int64 startPos, int64 noteIndex) const;
 
