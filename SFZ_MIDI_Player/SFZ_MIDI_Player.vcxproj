@@ -116,6 +116,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="source\AudioLoader.cpp" />
     <ClCompile Include="source\MIDILoader.cpp" />
     <ClCompile Include="source\PianoRoll.cpp" />
     <ClCompile Include="source\SamplePlayer.cpp" />
@@ -321,6 +322,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Animation.hpp" />
+    <ClInclude Include="include\AudioLoader.hpp" />
     <ClInclude Include="include\MIDILoader.hpp" />
     <ClInclude Include="include\PianoRoll.hpp" />
     <ClInclude Include="include\SamplePlayer.hpp" />
