@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include <AudioLoader.hpp>
+#include <AudioLoadManager.hpp>
 #include <SampleSource.hpp>
 
 double Envelope::level(double noteOnTime, double noteOffTime, double time) const
@@ -103,12 +103,12 @@ void AudioSource::unuse()
 	getReader().unuse();
 }
 
-const StreamingReader& AudioSource::getReader() const
+const AudioLoaderBase& AudioSource::getReader() const
 {
 	return AudioLoadManager::i().reader(m_index);
 }
 
-StreamingReader& AudioSource::getReader()
+AudioLoaderBase& AudioSource::getReader()
 {
 	return AudioLoadManager::i().reader(m_index);
 }

@@ -5,7 +5,7 @@
 #include <PianoRoll.hpp>
 #include <MIDILoader.hpp>
 #include <SampleSource.hpp>
-#include <AudioLoader.hpp>
+#include <AudioLoadManager.hpp>
 
 //#define DEBUG_MODE
 

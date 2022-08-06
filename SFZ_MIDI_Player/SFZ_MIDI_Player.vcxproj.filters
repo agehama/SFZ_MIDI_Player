@@ -159,7 +159,10 @@
     <ClCompile Include="source\SamplePlayer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\AudioLoader.cpp">
+    <ClCompile Include="source\AudioLoadManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\WaveLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -815,7 +818,13 @@
     <ClInclude Include="include\PianoRoll.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\AudioLoader.hpp">
+    <ClInclude Include="include\AudioLoaderBase.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\AudioLoadManager.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\WaveLoader.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

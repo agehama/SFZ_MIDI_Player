@@ -57,7 +57,7 @@ private:
 	double m_releaseTime = 0;
 };
 
-class StreamingReader;
+class AudioLoaderBase;
 
 // 1つのソース音源に対応
 struct AudioSource
@@ -97,8 +97,8 @@ private:
 
 	size_t m_index;
 
-	const StreamingReader& getReader() const;
-	StreamingReader& getReader();
+	const AudioLoaderBase& getReader() const;
+	AudioLoaderBase& getReader();
 
 	float m_amplitude;
 

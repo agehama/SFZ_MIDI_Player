@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include <AudioLoader.hpp>
+#include <WaveLoader.hpp>
 
 struct ChunkHead
 {
@@ -13,13 +13,13 @@ struct RiffChunk
 	char format[4];
 };
 
-WaveReader::WaveReader(FilePathView path) :
+WaveLoader::WaveLoader(FilePathView path) :
 	m_waveReader(path)
 {
 	init();
 }
 
-void WaveReader::init()
+void WaveLoader::init()
 {
 	RiffChunk riffChunk;
 	m_waveReader.read(riffChunk);
@@ -92,7 +92,7 @@ void WaveReader::init()
 	m_normalize = 1.f / 32768.0f;
 }
 
-void WaveReader::use()
+void WaveLoader::use()
 {
 	m_unuseCount = 0;
 
@@ -119,12 +119,12 @@ void WaveReader::use()
 	m_mutex.unlock();
 }
 
-void WaveReader::unuse()
+void WaveLoader::unuse()
 {
 	m_use = false;
 }
 
-void WaveReader::update()
+void WaveLoader::update()
 {
 	m_mutex.lock();
 
@@ -149,14 +149,14 @@ void WaveReader::update()
 	m_mutex.unlock();
 }
 
-WaveSample WaveReader::getSample(int64 index) const
+WaveSample WaveLoader::getSample(int64 index) const
 {
 	const auto& sample = m_readBuffer[index];
 
 	return WaveSample(sample.left * m_normalize, sample.right * m_normalize);
 }
 
-void WaveReader::readBlock()
+void WaveLoader::readBlock()
 {
 	size_t readCount = 4096;
 	if (m_dataSize <= m_loadSampleCount + readCount)
@@ -171,12 +171,4 @@ void WaveReader::readBlock()
 	}
 }
 
-void AudioLoadManager::update()
-{
-	for (auto& reader : m_waveReaders)
-	{
-		reader->update();
-	}
-}
-
-std::mutex WaveReader::m_mutex;
+std::mutex WaveLoader::m_mutex;
