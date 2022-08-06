@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <AudioLoadManager.hpp>
 #include <WaveLoader.hpp>
+#include <FlacLoader.hpp>
 
 size_t AudioLoadManager::load(FilePathView path)
 {
@@ -16,6 +17,10 @@ size_t AudioLoadManager::load(FilePathView path)
 	if (FileSystem::Extension(path) == U"wav")
 	{
 		m_waveReaders.push_back(std::make_unique<WaveLoader>(path));
+	}
+	else if (FileSystem::Extension(path) == U"flac")
+	{
+		m_waveReaders.push_back(std::make_unique<FlacLoader>(path));
 	}
 	else
 	{

@@ -165,6 +165,9 @@
     <ClCompile Include="source\WaveLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\FlacLoader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="App\icon.ico">
@@ -825,6 +828,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\WaveLoader.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\FlacLoader.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
