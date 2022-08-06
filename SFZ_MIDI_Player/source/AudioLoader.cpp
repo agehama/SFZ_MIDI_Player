@@ -175,7 +175,7 @@ void AudioLoadManager::update()
 {
 	for (auto& reader : m_waveReaders)
 	{
-		reader.update();
+		reader->update();
 	}
 }
 

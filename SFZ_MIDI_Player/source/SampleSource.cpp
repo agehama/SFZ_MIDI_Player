@@ -103,12 +103,12 @@ void AudioSource::unuse()
 	getReader().unuse();
 }
 
-const WaveReader& AudioSource::getReader() const
+const StreamingReader& AudioSource::getReader() const
 {
 	return AudioLoadManager::i().reader(m_index);
 }
 
-WaveReader& AudioSource::getReader()
+StreamingReader& AudioSource::getReader()
 {
 	return AudioLoadManager::i().reader(m_index);
 }

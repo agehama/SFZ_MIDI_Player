@@ -1,37 +1,60 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
 
-struct WaveFileFormat
+class StreamingReader
 {
-	uint16 audioFormat;
-	uint16 channels;
-	uint32 samplePerSecond;
-	uint32 bytesPerSecond;
-	uint16 blockAlign;
-	uint16 bitsPerSample;
+public:
+
+	virtual ~StreamingReader() = default;
+
+	virtual size_t size() const = 0;
+
+	virtual size_t sampleRate() const = 0;
+
+	virtual size_t lengthSample() const = 0;
+
+	virtual void use() = 0;
+
+	virtual void unuse() = 0;
+
+	virtual void update() = 0;
+
+	virtual WaveSample getSample(int64 index) const = 0;
 };
 
-class WaveReader
+class WaveReader : public StreamingReader
 {
 public:
 
 	WaveReader(FilePathView path);
 
-	size_t size() const { return m_dataSize; }
+	virtual ~WaveReader() = default;
 
-	size_t sampleRate() const { return m_sampleRate; }
+	size_t size() const override { return m_dataSize; }
 
-	size_t lengthSample() const { return m_lengthSample; }
+	size_t sampleRate() const override { return m_sampleRate; }
 
-	void use();
+	size_t lengthSample() const override { return m_lengthSample; }
 
-	void unuse();
+	void use() override;
 
-	void update();
+	void unuse() override;
 
-	WaveSample getSample(int64 index) const;
+	void update() override;
+
+	WaveSample getSample(int64 index) const override;
 
 private:
+
+	struct WaveFileFormat
+	{
+		uint16 audioFormat;
+		uint16 channels;
+		uint32 samplePerSecond;
+		uint32 bytesPerSecond;
+		uint16 blockAlign;
+		uint16 bitsPerSample;
+	};
 
 	struct Sample16bit2ch
 	{
@@ -81,28 +104,38 @@ public:
 		}
 
 		const auto i = m_paths.size();
+		if (FileSystem::Extension(path) == U"wav")
+		{
+			m_waveReaders.push_back(std::make_unique<WaveReader>(path));
+		}
+		else
+		{
+			Console << U"error 未対応の拡張子です\"" << path << U"\"";
+
+			return std::numeric_limits<size_t>::max();
+		}
+
 		m_paths.emplace_back(path);
-		m_waveReaders.emplace_back(path);
 
 		return i;
 	}
 
 	void update();
 
-	const WaveReader& reader(size_t index) const
+	const StreamingReader& reader(size_t index) const
 	{
-		return m_waveReaders[index];
+		return *m_waveReaders[index];
 	}
 
-	WaveReader& reader(size_t index)
+	StreamingReader& reader(size_t index)
 	{
-		return m_waveReaders[index];
+		return *m_waveReaders[index];
 	}
 
 private:
 
 	AudioLoadManager() = default;
 
-	Array<WaveReader> m_waveReaders;
+	Array<std::unique_ptr<StreamingReader>> m_waveReaders;
 	Array<String> m_paths;
 };
