@@ -57,45 +57,7 @@ private:
 	double m_releaseTime = 0;
 };
 
-class AudioLoadManager
-{
-public:
-
-	static AudioLoadManager& i()
-	{
-		static AudioLoadManager obj;
-		return obj;
-	}
-
-	size_t load(FilePathView path)
-	{
-		for (auto [i, wavePath]: Indexed(m_paths))
-		{
-			if (wavePath == path)
-			{
-				return i;
-			}
-		}
-
-		const auto i = m_paths.size();
-		m_paths.emplace_back(path);
-		m_waves.emplace_back(path);
-
-		return i;
-	}
-
-	const Wave& wave(size_t index) const
-	{
-		return m_waves[index];
-	}
-
-private:
-
-	AudioLoadManager() = default;
-
-	Array<Wave> m_waves;
-	Array<String> m_paths;
-};
+class AudioLoaderBase;
 
 // 1つのソース音源に対応
 struct AudioSource
@@ -127,11 +89,16 @@ public:
 
 	const Envelope& envelope() const { return m_envelope; }
 
+	void use();
+
+	void unuse();
+
 private:
 
 	size_t m_index;
 
-	const Wave& getWave() const { return AudioLoadManager::i().wave(m_index); }
+	const AudioLoaderBase& getReader() const;
+	AudioLoaderBase& getReader();
 
 	float m_amplitude;
 
@@ -170,7 +137,7 @@ public:
 
 	void deleteDuplicate();
 
-	void getSamples(float* left, float* right, int64 startPos, int64 sampleCount) const;
+	void getSamples(float* left, float* right, int64 startPos, int64 sampleCount);
 
 private:
 
@@ -180,9 +147,9 @@ private:
 	Array<AudioSource> releaseKeys;
 	Array<NoteEvent> m_noteEvents;
 
-	void render(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex) const;
+	void render(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex);
 
-	void renderRelease(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex) const;
+	void renderRelease(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex);
 
 	int64 getWriteIndexHead(int64 startPos, int64 noteIndex) const;
 

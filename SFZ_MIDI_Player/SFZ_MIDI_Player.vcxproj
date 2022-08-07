@@ -49,16 +49,16 @@
     <IntDir>$(SolutionDir)Intermediate\$(ProjectName)\Debug\Intermediate\</IntDir>
     <TargetName>$(ProjectName)(debug)</TargetName>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)App</LocalDebuggerWorkingDirectory>
-    <IncludePath>$(SIV3D_0_6_4)\include;$(SIV3D_0_6_4)\include\ThirdParty;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SIV3D_0_6_4)\lib\Windows;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SIV3D_0_6_4)\include;$(SIV3D_0_6_4)\include\ThirdParty;$(ProjectDir)external\flac\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SIV3D_0_6_4)\lib\Windows;$(ProjectDir)external\flac\lib\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)Intermediate\$(ProjectName)\Release\</OutDir>
     <IntDir>$(SolutionDir)Intermediate\$(ProjectName)\Release\Intermediate\</IntDir>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)App</LocalDebuggerWorkingDirectory>
-    <IncludePath>$(SIV3D_0_6_4)\include;$(SIV3D_0_6_4)\include\ThirdParty;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SIV3D_0_6_4)\lib\Windows;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SIV3D_0_6_4)\include;$(SIV3D_0_6_4)\include\ThirdParty;$(ProjectDir)external\flac\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SIV3D_0_6_4)\lib\Windows;$(ProjectDir)external\flac\lib\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -80,6 +80,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <DelayLoadDLLs>advapi32.dll;crypt32.dll;dwmapi.dll;gdi32.dll;imm32.dll;ole32.dll;oleaut32.dll;opengl32.dll;shell32.dll;shlwapi.dll;user32.dll;winmm.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <AdditionalDependencies>FLAC.lib;FLAC++.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /I /D /Y "$(OutDir)$(TargetFileName)" "$(ProjectDir)App"</Command>
@@ -109,6 +110,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <DelayLoadDLLs>advapi32.dll;crypt32.dll;dwmapi.dll;gdi32.dll;imm32.dll;ole32.dll;oleaut32.dll;opengl32.dll;shell32.dll;shlwapi.dll;user32.dll;winmm.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <AdditionalDependencies>FLAC.lib;FLAC++.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /I /D /Y "$(OutDir)$(TargetFileName)" "$(ProjectDir)App"</Command>
@@ -116,11 +118,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="source\AudioLoadManager.cpp" />
+    <ClCompile Include="source\FlacLoader.cpp" />
     <ClCompile Include="source\MIDILoader.cpp" />
     <ClCompile Include="source\PianoRoll.cpp" />
     <ClCompile Include="source\SamplePlayer.cpp" />
     <ClCompile Include="source\SampleSource.cpp" />
     <ClCompile Include="source\SFZLoader.cpp" />
+    <ClCompile Include="source\WaveLoader.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
@@ -321,12 +326,16 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Animation.hpp" />
+    <ClInclude Include="include\AudioLoaderBase.hpp" />
+    <ClInclude Include="include\AudioLoadManager.hpp" />
+    <ClInclude Include="include\FlacLoader.hpp" />
     <ClInclude Include="include\MIDILoader.hpp" />
     <ClInclude Include="include\PianoRoll.hpp" />
     <ClInclude Include="include\SamplePlayer.hpp" />
     <ClInclude Include="include\SampleSource.hpp" />
     <ClInclude Include="include\SFZLoader.hpp" />
     <ClInclude Include="include\Utility.hpp" />
+    <ClInclude Include="include\WaveLoader.hpp" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>

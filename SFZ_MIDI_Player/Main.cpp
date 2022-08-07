@@ -5,6 +5,7 @@
 #include <PianoRoll.hpp>
 #include <MIDILoader.hpp>
 #include <SampleSource.hpp>
+#include <AudioLoadManager.hpp>
 
 //#define DEBUG_MODE
 
@@ -40,6 +41,8 @@ void Main()
 
 	while (System::Update())
 	{
+		AudioLoadManager::i().update();
+
 		if (DragDrop::HasNewFilePaths())
 		{
 			const auto filepath = DragDrop::GetDroppedFilePaths().front();

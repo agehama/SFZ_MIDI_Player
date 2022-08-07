@@ -1,5 +1,5 @@
 .vs/
 Intermediate/
 *.exe
-debug*
 SFZ_MIDI_Player/App/Screenshot/
+SFZ_MIDI_Player/App/debug/

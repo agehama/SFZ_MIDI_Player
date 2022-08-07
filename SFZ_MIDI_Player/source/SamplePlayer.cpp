@@ -5,6 +5,7 @@
 #include <PianoRoll.hpp>
 #include <MIDILoader.hpp>
 #include <SampleSource.hpp>
+#include <AudioLoadManager.hpp>
 
 namespace
 {
@@ -400,7 +401,7 @@ void SamplePlayer::deleteDuplicate()
 	}
 }
 
-void SamplePlayer::getSamples(float* left, float* right, int64 startPos, int64 sampleCount) const
+void SamplePlayer::getSamples(float* left, float* right, int64 startPos, int64 sampleCount)
 {
 	for (int i = 0; i < sampleCount; ++i)
 	{

@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <AudioLoadManager.hpp>
 #include <SampleSource.hpp>
 
 double Envelope::level(double noteOnTime, double noteOffTime, double time) const
@@ -50,12 +51,12 @@ void AudioSource::setRtDecay(float rtDecay)
 
 size_t AudioSource::sampleRate() const
 {
-	return getWave().sampleRate();
+	return getReader().sampleRate();
 }
 
 size_t AudioSource::lengthSample() const
 {
-	const auto& sourceWave = getWave();
+	const auto& sourceWave = getReader();
 
 	const double speed = std::exp2(m_tune / 1200.0);
 	const double scale = 1.0 / speed;
@@ -66,7 +67,7 @@ size_t AudioSource::lengthSample() const
 
 WaveSample AudioSource::getSample(int64 index) const
 {
-	const auto& sourceWave = getWave();
+	const auto& sourceWave = getReader();
 
 	float amplitude = m_amplitude;
 	if (m_rtDecay)
@@ -79,7 +80,7 @@ WaveSample AudioSource::getSample(int64 index) const
 
 	if (m_tune == 0)
 	{
-		return sourceWave[index] * amplitude;
+		return sourceWave.getSample(index) * amplitude;
 	}
 
 	const double speed = std::exp2(m_tune / 1200.0);
@@ -89,7 +90,27 @@ WaveSample AudioSource::getSample(int64 index) const
 	const auto nextIndex = Min(static_cast<int64>(Ceil(readIndex)), static_cast<int64>(sourceWave.size() - 1));
 	const double t = Math::Fmod(readIndex, 1.0);
 
-	return sourceWave[prevIndex].lerp(sourceWave[nextIndex], t) * amplitude;
+	return sourceWave.getSample(prevIndex).lerp(sourceWave.getSample(nextIndex), t) * amplitude;
+}
+
+void AudioSource::use()
+{
+	getReader().use();
+}
+
+void AudioSource::unuse()
+{
+	getReader().unuse();
+}
+
+const AudioLoaderBase& AudioSource::getReader() const
+{
+	return AudioLoadManager::i().reader(m_index);
+}
+
+AudioLoaderBase& AudioSource::getReader()
+{
+	return AudioLoadManager::i().reader(m_index);
 }
 
 void AudioKey::init(int8 key)
@@ -195,7 +216,7 @@ void AudioKey::deleteDuplicate()
 	}
 }
 
-void AudioKey::getSamples(float* left, float* right, int64 startPos, int64 sampleCount) const
+void AudioKey::getSamples(float* left, float* right, int64 startPos, int64 sampleCount)
 {
 	//const double lengthOfTime = 1.0 * sampleCount / Wave::DefaultSampleRate;
 
@@ -230,7 +251,7 @@ void AudioKey::getSamples(float* left, float* right, int64 startPos, int64 sampl
 	}
 }
 
-void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex) const
+void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex)
 {
 	const auto& targetEvent = m_noteEvents[noteIndex];
 
@@ -239,7 +260,8 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 		return;
 	}
 
-	const auto& attackKey = attackKeys[targetEvent.attackIndex];
+	auto& attackKey = attackKeys[targetEvent.attackIndex];
+
 	const auto& envelope = attackKey.envelope();
 
 	//const auto waveStartPos = Max(0ll, startPos - targetEvent.pressTimePos);
@@ -291,11 +313,14 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 			break;
 		}
 
+		attackKey.use();
+
 		const auto blendIndex = (startPos + writeIndex) - targetEvent.pressTimePos;
 		if (1 <= noteIndex && blendIndex < BlendSampleCount)
 		{
 			const auto& prevEvent = m_noteEvents[noteIndex - 1];
-			const auto& prevAttackKey = attackKeys[prevEvent.attackIndex];
+			auto& prevAttackKey = attackKeys[prevEvent.attackIndex];
+			prevAttackKey.use();
 			const auto [prevReadCount, prevEmptyCount] = readEmptyCount(startPos, sampleCount, noteIndex - 1);
 
 			const double prevVolume = prevEvent.velocity / 127.0;
@@ -322,7 +347,7 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 	}
 }
 
-void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex) const
+void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex)
 {
 	const auto& targetEvent = m_noteEvents[noteIndex];
 
