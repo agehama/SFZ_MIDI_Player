@@ -293,6 +293,14 @@ SfzData LoadSfz(FilePathView sfzPath)
 				// sampleの場合は空白文字を含める
 				nextPos = text.indexOfAny(U"\t\n", pos);
 				token = text.substrView(pos, nextPos == String::npos ? nextPos : nextPos - pos);
+
+				// todo: oscillatorの対応を追加する
+				if (!FileSystem::Exists(defaultPath + token))
+				{
+					Console << U"warning: not found sample \"" << (defaultPath + token) << U"\"";
+					Console << U"this region is skipped";
+					region = none;
+				}
 			}
 
 			(region ? region.value() : group).sample = token;
