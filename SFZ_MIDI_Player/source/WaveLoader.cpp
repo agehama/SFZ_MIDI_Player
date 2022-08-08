@@ -45,14 +45,14 @@ void WaveLoader::init()
 		{
 			m_waveReader.read(m_format);
 
-			if (m_format.channels != 2)
+			if (m_format.channels != 1 && m_format.channels != 2)
 			{
-				Console << U"error: channels != 2";
+				Console << U"error: channels != 1 && channels != 2";
 				return;
 			}
-			if (m_format.bitsPerSample != 16)
+			if (m_format.bitsPerSample != 8 && m_format.bitsPerSample != 16)
 			{
-				Console << U"error: bitsPerSample != 16";
+				Console << U"error: bitsPerSample != 8 && bitsPerSample != 16";
 				return;
 			}
 
@@ -70,7 +70,7 @@ void WaveLoader::init()
 		else if (strncmp(chunk.id, "data", 4) == 0)
 		{
 			m_dataPos = m_waveReader.getPos();
-			m_dataSize = chunk.size;
+			m_dataSizeOfBytes = chunk.size;
 
 			if (m_readFormat)
 			{
@@ -87,7 +87,7 @@ void WaveLoader::init()
 		}
 	}
 
-	m_lengthSample = m_dataSize / m_format.blockAlign;
+	m_lengthSample = m_dataSizeOfBytes / m_format.blockAlign;
 	m_sampleRate = m_format.samplePerSecond;
 	m_normalize = 1.f / 32768.0f;
 }
@@ -105,7 +105,7 @@ void WaveLoader::use()
 
 	{
 		m_loadSampleCount = 0;
-		m_readBuffer.resize(m_dataSize);
+		m_readBuffer.resize(m_dataSizeOfBytes);
 		if (m_waveReader.getPos() != m_dataPos)
 		{
 			m_waveReader.setPos(m_dataPos);
@@ -149,24 +149,62 @@ void WaveLoader::update()
 	m_mutex.unlock();
 }
 
+struct Sample16bit2ch
+{
+	int16 left;
+	int16 right;
+};
+
+struct Sample8bit2ch
+{
+	int8 left;
+	int8 right;
+};
+
 WaveSample WaveLoader::getSample(int64 index) const
 {
-	const auto& sample = m_readBuffer[index];
-
-	return WaveSample(sample.left * m_normalize, sample.right * m_normalize);
+	if (m_format.channels == 1)
+	{
+		if (m_format.bitsPerSample == 8)
+		{
+			const auto& sample = m_readBuffer[index];
+			return WaveSample(sample * m_normalize, sample * m_normalize);
+		}
+		else// if (m_format.bitsPerSample == 16)
+		{
+			auto buffer = std::bit_cast<int16*>(m_readBuffer.data());
+			const auto& sample = buffer[index];
+			return WaveSample(sample * m_normalize, sample * m_normalize);
+		}
+	}
+	else
+	{
+		if (m_format.bitsPerSample == 8)
+		{
+			auto buffer = std::bit_cast<Sample8bit2ch*>(m_readBuffer.data());
+			const auto& sample = buffer[index];
+			return WaveSample(sample.left * m_normalize, sample.right * m_normalize);
+		}
+		else// if (m_format.bitsPerSample == 16)
+		{
+			auto buffer = std::bit_cast<Sample16bit2ch*>(m_readBuffer.data());
+			const auto& sample = buffer[index];
+			return WaveSample(sample.left * m_normalize, sample.right * m_normalize);
+		}
+	}
 }
 
 void WaveLoader::readBlock()
 {
-	size_t readCount = 4096;
-	if (m_dataSize <= m_loadSampleCount + readCount)
+	size_t readCount = 1024;
+	if (m_lengthSample <= m_loadSampleCount + readCount)
 	{
-		readCount = m_loadSampleCount - m_dataSize;
+		readCount = m_loadSampleCount - m_lengthSample;
 	}
 
 	if (1 <= readCount)
 	{
-		m_waveReader.read(m_readBuffer.data() + m_loadSampleCount, readCount * m_format.blockAlign);
+		m_waveReader.read(m_readBuffer.data() + m_loadSampleCount * m_format.blockAlign, readCount * m_format.blockAlign);
 		m_loadSampleCount += readCount;
 	}
 }
