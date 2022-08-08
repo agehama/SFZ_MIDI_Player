@@ -277,6 +277,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 		}
 		else if (token.starts_with(keyRegion))
 		{
+			nextPos = pos + keyRegion.length() - 1;
 			if (region)
 			{
 				settings.push_back(region.value());
@@ -287,23 +288,25 @@ SfzData LoadSfz(FilePathView sfzPath)
 		else if (token.starts_with(keySample))
 		{
 			token = token.substr(keySample.length());
-			if (!FileSystem::Exists(defaultPath + token))
+			if (!FileSystem::IsFile(defaultPath + token))
 			{
 				pos += keySample.length();
 				// sampleの場合は空白文字を含める
 				nextPos = text.indexOfAny(U"\t\n", pos);
 				token = text.substrView(pos, nextPos == String::npos ? nextPos : nextPos - pos);
-
-				// todo: oscillatorの対応を追加する
-				if (!FileSystem::Exists(defaultPath + token))
-				{
-					Console << U"warning: not found sample \"" << (defaultPath + token) << U"\"";
-					Console << U"this region is skipped";
-					region = none;
-				}
 			}
 
-			(region ? region.value() : group).sample = token;
+			// todo: oscillatorの対応を追加する
+			if (FileSystem::IsFile(defaultPath + token))
+			{
+				(region ? region.value() : group).sample = token;
+			}
+			else
+			{
+				Console << U"warning: not found sample \"" << (defaultPath + token) << U"\"";
+				Console << U"this region is skipped";
+				region = none;
+			}
 		}
 		else if (token.starts_with(keyLovel))
 		{
@@ -319,7 +322,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 		}
 		else if (token.starts_with(keyKey))
 		{
-			const auto keyStr = token.substr(keyLokey.length());
+			const auto keyStr = token.substr(keyKey.length());
 			if (auto optKey = ParseIntOpt<uint8>(keyStr))
 			{
 				(region ? region.value() : group).lokey = optKey.value();
@@ -403,6 +406,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 		}
 		else if (token.starts_with(keyGroup))
 		{
+			nextPos = pos + keyRegion.length() - 1;
 			if (region)
 			{
 				settings.push_back(region.value());
