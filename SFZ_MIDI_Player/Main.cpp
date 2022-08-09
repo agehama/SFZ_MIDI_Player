@@ -39,10 +39,19 @@ void Main()
 	DragDrop::AcceptFilePaths(true);
 	Window::SetTitle(U"MIDIファイルをドラッグドロップして再生");
 
+	auto audioStreamUpdate = []()
+	{
+		while (AudioLoadManager::i().isRunning())
+		{
+			AudioLoadManager::i().update();
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		}
+	};
+
+	std::thread audioStreamThread(audioStreamUpdate);
+
 	while (System::Update())
 	{
-		AudioLoadManager::i().update();
-
 		if (DragDrop::HasNewFilePaths())
 		{
 			const auto filepath = DragDrop::GetDroppedFilePaths().front();
@@ -101,6 +110,9 @@ void Main()
 		player.drawVertical(pianoRoll, midiData);
 #endif
 	}
+
+	AudioLoadManager::i().finish();
+	audioStreamThread.join();
 }
 
 #else
