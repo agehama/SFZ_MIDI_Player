@@ -20,10 +20,15 @@ public:
 
 	AudioLoaderBase& reader(size_t index);
 
+	bool isRunning() const { return m_isRunning; }
+
+	void finish() { m_isRunning = false; }
+
 private:
 
 	AudioLoadManager() = default;
 
 	Array<std::unique_ptr<AudioLoaderBase>> m_waveReaders;
 	Array<String> m_paths;
+	bool m_isRunning = true;
 };
