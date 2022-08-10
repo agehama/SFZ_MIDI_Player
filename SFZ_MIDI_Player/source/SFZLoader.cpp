@@ -254,6 +254,10 @@ SfzData LoadSfz(FilePathView sfzPath)
 	const String keyAmpegRelease = U"ampeg_release=";
 	const String keyRtDecay = U"rt_decay=";
 	const String keyDefaultPath = U"default_path=";
+	const String keySwLoKey = U"sw_lokey=";
+	const String keySwHiKey = U"sw_hikey=";
+	const String keySwDefault = U"sw_default=";
+	const String keySwLast = U"sw_last=";
 
 	const auto parentDirectory = FileSystem::ParentPath(sfzPath);
 	String defaultPath = parentDirectory;
@@ -307,6 +311,22 @@ SfzData LoadSfz(FilePathView sfzPath)
 				Console << U"this region is skipped";
 				region = none;
 			}
+		}
+		else if (token.starts_with(keySwLoKey))
+		{
+			(region ? region.value() : group).sw_lokey = ParseInt<int8>(token.substr(keySwLoKey.length()));
+		}
+		else if (token.starts_with(keySwHiKey))
+		{
+			(region ? region.value() : group).sw_hikey = ParseInt<int8>(token.substr(keySwHiKey.length()));
+		}
+		else if (token.starts_with(keySwDefault))
+		{
+			(region ? region.value() : group).sw_default = ParseInt<int8>(token.substr(keySwDefault.length()));
+		}
+		else if (token.starts_with(keySwLast))
+		{
+			(region ? region.value() : group).sw_last = ParseInt<int8>(token.substr(keySwLast.length()));
 		}
 		else if (token.starts_with(keyLovel))
 		{
