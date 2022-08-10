@@ -4,6 +4,7 @@
 struct SfzData;
 class PianoRoll;
 class MidiData;
+struct KeyDownEvent;
 struct NoteEvent;
 class AudioKey;
 
@@ -37,7 +38,7 @@ public:
 
 	void drawHorizontal(const PianoRoll& pianoroll, const Optional<MidiData>& midiData) const;
 
-	const NoteEvent& addEvent(uint8 key, uint8 velocity, int64 pressTimePos, int64 releaseTimePos);
+	const NoteEvent& addEvent(uint8 key, uint8 velocity, int64 pressTimePos, int64 releaseTimePos, const Array<KeyDownEvent>& history);
 
 	void sortEvent();
 

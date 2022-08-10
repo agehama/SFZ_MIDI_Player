@@ -84,9 +84,10 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 		Window::SetTitle(Format(U"音源読み込み中：", Math::Round(progress * 100), U" %"));
 
 		const auto samplePath = sfzData.dir + data.sample;
-		if (!FileSystem::Exists(samplePath))
+		if (!FileSystem::IsFile(samplePath))
 		{
-			Console << U"file does not exist: \"" << samplePath << U"\"";
+			Console << U"error: file does not exist: \"" << samplePath << U"\"";
+			continue;
 		}
 
 		const Envelope envelope(data.ampeg_attack, data.ampeg_decay, data.ampeg_sustain / 100.0, data.ampeg_release);
@@ -104,6 +105,7 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 			const int32 tune = (key - data.pitch_keycenter) * 100 + data.tune;
 
 			AudioSource source(waveIndex, amplitude, envelope, data.lovel, data.hivel, tune);
+			source.setSwitch(data.sw_lokey, data.sw_hikey, data.sw_last, data.sw_default);
 
 			if (data.trigger == Trigger::Attack)
 			{
@@ -374,9 +376,9 @@ void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const Optional<Mid
 	}
 }
 
-const NoteEvent& SamplePlayer::addEvent(uint8 key, uint8 velocity, int64 pressTimePos, int64 releaseTimePos)
+const NoteEvent& SamplePlayer::addEvent(uint8 key, uint8 velocity, int64 pressTimePos, int64 releaseTimePos, const Array<KeyDownEvent>& history)
 {
-	return m_audioKeys[key + 127].addEvent(velocity, pressTimePos, releaseTimePos);
+	return m_audioKeys[key + 127].addEvent(velocity, pressTimePos, releaseTimePos, history);
 }
 
 void SamplePlayer::sortEvent()
@@ -430,6 +432,25 @@ Array<std::pair<uint8, NoteEvent>> SamplePlayer::addEvents(const MidiData& midiD
 
 	const auto tracks = midiData.notes();
 
+	Array<KeyDownEvent> keyDownEvents;
+	for (const auto& [i, track] : Indexed(tracks))
+	{
+		if (track.notes().empty())
+		{
+			continue;
+		}
+
+		for (const auto& note : track.notes())
+		{
+			const int64 beginTick = note.tick;
+			const double beginSec = midiData.ticksToSeconds(beginTick);
+			const int64 pressTimePos = static_cast<int64>(Math::Round(beginSec * Wave::DefaultSampleRate));
+
+			keyDownEvents.emplace_back(note.key, pressTimePos);
+		}
+	}
+	keyDownEvents.sort_by([](const KeyDownEvent& a, const KeyDownEvent& b) { return a.pressTimePos < b.pressTimePos; });
+
 	Array<std::pair<uint8, NoteEvent>> results;
 	for (const auto& [i, track] : Indexed(tracks))
 	{
@@ -454,7 +475,7 @@ Array<std::pair<uint8, NoteEvent>> SamplePlayer::addEvents(const MidiData& midiD
 			const int64 pressTimePos = static_cast<int64>(Math::Round(beginSec * Wave::DefaultSampleRate));
 			const int64 releaseTimePos = static_cast<int64>(Math::Round(endSec * Wave::DefaultSampleRate));
 
-			const NoteEvent noteEvent = addEvent(note.key, note.velocity, pressTimePos, releaseTimePos);
+			const NoteEvent noteEvent = addEvent(note.key, note.velocity, pressTimePos, releaseTimePos, keyDownEvents);
 			results.push_back(std::make_pair(note.key, noteEvent));
 		}
 	}

@@ -1,6 +1,18 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
 
+struct KeyDownEvent
+{
+	int8 key;
+	int64 pressTimePos;
+
+	KeyDownEvent() = delete;
+	KeyDownEvent(int8 key, int64 pressTimePos) :
+		key(key),
+		pressTimePos(pressTimePos)
+	{}
+};
+
 struct NoteEvent
 {
 	int64 attackIndex;
@@ -74,10 +86,20 @@ public:
 	{
 	}
 
+	void setSwitch(int8 swLokey, int8 swHikey, int8 swLast, int8 swDefault)
+	{
+		m_swLokey = swLokey;
+		m_swHikey = swHikey;
+		m_swLast = swLast;
+		m_swDefault = swDefault;
+	}
+
 	bool isValidVelocity(uint8 velocity) const
 	{
 		return m_lovel <= velocity && velocity <= m_hivel;
 	}
+
+	bool isValidSwLast(int64 pressTimePos, const Array<KeyDownEvent>& history) const;
 
 	void setRtDecay(float rtDecay);
 
@@ -108,6 +130,11 @@ private:
 	uint8 m_lovel;
 	uint8 m_hivel;
 	Envelope m_envelope;
+
+	int8 m_swLokey = 0;
+	int8 m_swHikey = 0;
+	int8 m_swLast = 0;
+	int8 m_swDefault = 0;
 };
 
 // 1つのキーから鳴らされるAudioSourceをまとめたもの
@@ -123,11 +150,11 @@ public:
 
 	bool hasAttackKey() const;
 
-	const NoteEvent& addEvent(uint8 velocity, int64 pressTimePos, int64 releaseTimePos);
+	const NoteEvent& addEvent(uint8 velocity, int64 pressTimePos, int64 releaseTimePos, const Array<KeyDownEvent>& history);
 
 	void clearEvent();
 
-	int64 getAttackIndex(uint8 velocity) const;
+	int64 getAttackIndex(uint8 velocity, int64 pressTimePos, const Array<KeyDownEvent>& history) const;
 
 	int64 getReleaseIndex(uint8 velocity) const;
 

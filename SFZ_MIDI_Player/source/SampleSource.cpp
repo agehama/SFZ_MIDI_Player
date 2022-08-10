@@ -44,6 +44,31 @@ double Envelope::level(double noteOnTime, double noteOffTime, double time) const
 	return m_sustainLevel;
 }
 
+bool AudioSource::isValidSwLast(int64 pressTimePos, const Array<KeyDownEvent>& history) const
+{
+	// 未設定の場合
+	if (m_swLokey == m_swHikey)
+	{
+		return true;
+	}
+
+	for (int64 i = static_cast<int64>(history.size()) - 1; 0 <= i; --i)
+	{
+		if (pressTimePos <= history[i].pressTimePos)
+		{
+			continue;
+		}
+
+		const auto key = history[i].key;
+		if (m_swLokey <= key && key <= m_swHikey)
+		{
+			return m_swLast == key;
+		}
+	}
+
+	return m_swLast == m_swDefault;
+}
+
 void AudioSource::setRtDecay(float rtDecay)
 {
 	m_rtDecay = rtDecay;
@@ -135,9 +160,9 @@ bool AudioKey::hasAttackKey() const
 	return !attackKeys.empty();
 }
 
-const NoteEvent& AudioKey::addEvent(uint8 velocity, int64 pressTimePos, int64 releaseTimePos)
+const NoteEvent& AudioKey::addEvent(uint8 velocity, int64 pressTimePos, int64 releaseTimePos, const Array<KeyDownEvent>& history)
 {
-	const auto attackIndex = getAttackIndex(velocity);
+	const auto attackIndex = getAttackIndex(velocity, pressTimePos, history);
 	const auto releaseIndex = getReleaseIndex(velocity);
 	NoteEvent note(attackIndex, releaseIndex, pressTimePos, releaseTimePos, velocity);
 	m_noteEvents.push_back(note);
@@ -149,11 +174,11 @@ void AudioKey::clearEvent()
 	m_noteEvents.clear();
 }
 
-int64 AudioKey::getAttackIndex(uint8 velocity) const
+int64 AudioKey::getAttackIndex(uint8 velocity, int64 pressTimePos, const Array<KeyDownEvent>& history) const
 {
 	for (auto [i, key] : Indexed(attackKeys))
 	{
-		if (key.isValidVelocity(velocity))
+		if (key.isValidVelocity(velocity) && key.isValidSwLast(pressTimePos, history))
 		{
 			return static_cast<int64>(i);
 		}
