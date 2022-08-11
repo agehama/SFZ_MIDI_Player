@@ -26,6 +26,18 @@ public:
 
 	Array<WaveSample> m_readBuffer;
 	size_t m_loadSampleCount = 0;
+	size_t m_readPos = 0;
+
+	bool isOpen() const
+	{
+		return m_fileReader.isOpen();
+	}
+
+	void restore()
+	{
+		m_fileReader.open(m_filePath);
+		m_fileReader.setPos(m_readPos);
+	}
 
 	void close()
 	{
@@ -46,6 +58,7 @@ protected:
 
 		const size_t size = *bytes;
 		*bytes = m_fileReader.read(buffer, size);
+		m_readPos = m_fileReader.getPos();
 
 		return FLAC__StreamDecoderReadStatus::FLAC__STREAM_DECODER_READ_STATUS_CONTINUE;
 	}
@@ -53,6 +66,7 @@ protected:
 	::FLAC__StreamDecoderSeekStatus seek_callback(FLAC__uint64 absolute_byte_offset) override
 	{
 		m_fileReader.setPos(static_cast<int64>(absolute_byte_offset));
+		m_readPos = m_fileReader.getPos();
 		return FLAC__STREAM_DECODER_SEEK_STATUS_OK;
 	}
 
@@ -152,6 +166,7 @@ FlacLoader::FlacLoader(FilePathView path) :
 	m_flacDecoder(std::make_unique<FlacDecoder>(path))
 {
 	init();
+	m_flacDecoder->close();
 }
 
 size_t FlacLoader::size() const
@@ -224,6 +239,7 @@ void FlacLoader::use()
 void FlacLoader::unuse()
 {
 	m_use = false;
+	m_flacDecoder->close();
 }
 
 void FlacLoader::update()
@@ -244,6 +260,7 @@ void FlacLoader::update()
 	{
 		m_flacDecoder->m_readBuffer.clear();
 		m_flacDecoder->m_readBuffer.shrink_to_fit();
+		m_flacDecoder->m_readPos = 0;
 		//m_waveReader.setPos(m_dataPos);
 		m_flacDecoder->m_loadSampleCount = 0;
 	}
@@ -258,19 +275,12 @@ WaveSample FlacLoader::getSample(int64 index) const
 
 void FlacLoader::readBlock()
 {
-	m_flacDecoder->process_single();
-
-	/*size_t readCount = 4096;
-	if (m_dataSize <= m_loadSampleCount + readCount)
+	if (!m_flacDecoder->isOpen())
 	{
-		readCount = m_loadSampleCount - m_dataSize;
+		m_flacDecoder->restore();
 	}
 
-	if (1 <= readCount)
-	{
-		m_waveReader.read(m_readBuffer.data() + m_loadSampleCount, readCount * m_format.blockAlign);
-		m_loadSampleCount += readCount;
-	}*/
+	m_flacDecoder->process_single();
 }
 
 std::mutex FlacLoader::m_mutex;

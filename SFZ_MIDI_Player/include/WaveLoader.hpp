@@ -41,9 +41,10 @@ private:
 	void readBlock();
 
 	BinaryReader m_waveReader;
+	FilePath m_filePath;
 
 	WaveFileFormat m_format = {};
-	int64 m_dataPos = 0;
+	int64 m_dataBeginPos = 0;
 	size_t m_dataSizeOfBytes = 0;
 	size_t m_sampleRate = 0;
 	size_t m_lengthSample = 0;

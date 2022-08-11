@@ -14,9 +14,11 @@ struct RiffChunk
 };
 
 WaveLoader::WaveLoader(FilePathView path) :
-	m_waveReader(path)
+	m_waveReader(path),
+	m_filePath(path)
 {
 	init();
+	m_waveReader.close();
 }
 
 void WaveLoader::init()
@@ -58,7 +60,7 @@ void WaveLoader::init()
 
 			m_readFormat = true;
 
-			if (m_dataPos != 0)
+			if (m_dataBeginPos != 0)
 			{
 				break;
 			}
@@ -69,7 +71,7 @@ void WaveLoader::init()
 		}
 		else if (strncmp(chunk.id, "data", 4) == 0)
 		{
-			m_dataPos = m_waveReader.getPos();
+			m_dataBeginPos = m_waveReader.getPos();
 			m_dataSizeOfBytes = chunk.size;
 
 			if (m_readFormat)
@@ -106,9 +108,15 @@ void WaveLoader::use()
 	{
 		m_loadSampleCount = 0;
 		m_readBuffer.resize(m_dataSizeOfBytes);
-		if (m_waveReader.getPos() != m_dataPos)
+
+		if (!m_waveReader.isOpen())
 		{
-			m_waveReader.setPos(m_dataPos);
+			m_waveReader.open(m_filePath);
+		}
+
+		if (m_waveReader.getPos() != m_dataBeginPos)
+		{
+			m_waveReader.setPos(m_dataBeginPos);
 		}
 
 		readBlock();
@@ -122,6 +130,7 @@ void WaveLoader::use()
 void WaveLoader::unuse()
 {
 	m_use = false;
+	m_waveReader.close();
 }
 
 void WaveLoader::update()
@@ -138,11 +147,10 @@ void WaveLoader::update()
 	{
 		readBlock();
 	}
-	else if(!m_readBuffer.empty())
+	else if (!m_readBuffer.empty())
 	{
 		m_readBuffer.clear();
 		m_readBuffer.shrink_to_fit();
-		m_waveReader.setPos(m_dataPos);
 		m_loadSampleCount = 0;
 	}
 
