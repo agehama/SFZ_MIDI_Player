@@ -272,6 +272,10 @@ void AudioKey::getSamples(float* left, float* right, int64 startPos, int64 sampl
 	for (int64 noteIndex = startIndex; noteIndex < nextEndIndex; ++noteIndex)
 	{
 		render(left, right, startPos, sampleCount, noteIndex);
+	}
+
+	for (int64 noteIndex = 0; noteIndex < m_noteEvents.size(); ++noteIndex)
+	{
 		renderRelease(left, right, startPos, sampleCount, noteIndex);
 	}
 }
@@ -376,83 +380,25 @@ void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sa
 {
 	const auto& targetEvent = m_noteEvents[noteIndex];
 
-	//todo: ノイズ対策が不十分なため一旦外す
-	return;
 	if (targetEvent.releaseIndex == -1)
 	{
 		return;
 	}
 
-	const auto& releaseKey = releaseKeys[targetEvent.releaseIndex];
+	auto& releaseKey = releaseKeys[targetEvent.releaseIndex];
 
-	//const auto waveStartPos = Max(0ll, startPos - targetEvent.releaseTimePos);
-	//const auto maxGateSamples = noteIndex + 1 < static_cast<int64>(m_noteEvents.size()) ? m_noteEvents[noteIndex + 1].pressTimePos - targetEvent.releaseTimePos : static_cast<int64>(sourceWave.lengthSample());
-
-	const int64 prevWriteIndexHead = getWriteIndexHeadRelease(startPos, noteIndex - 1);
 	const int64 writeIndexHead = getWriteIndexHeadRelease(startPos, noteIndex);
+	const int64 sampleReadCount = readCountRelease(startPos, sampleCount, noteIndex);
 
-	//const auto skipReadIndex = Max(0ll, startPos - targetEvent.releaseTimePos);
-
-	//const auto maxWriteCount = sampleCount - writeIndexHead;
-	//const auto sampleReadCount = Min(maxWriteCount, maxReadCount);
-	//const auto sampleEmptyCount = Min(maxWriteCount, overReadCount);
-	const auto [sampleReadCount, sampleEmptyCount] = readEmptyCountRelease(startPos, sampleCount, noteIndex);
-
-	/*Console << noteIndex << U"[" << noteKey << U"]v" << targetEvent.index << U" -> "
-		<< Point(targetEvent.pressTimePos, targetEvent.releaseTimePos)
-		<< U", readStart: " << waveStartPos
-		<< U", maxReadCount: " << maxGateSamples
-		<< U", writeStart: " << writeIndexHead
-		<< U", maxWriteCount: " << maxWriteCount
-		<< U", sampleReadCount: " << sampleReadCount
-		<< U", sampleEmptyCount: " << sampleEmptyCount;*/
-
-	//const double currentVolume = 1;
-
-	const int64 prevWriteCount = writeIndexHead - prevWriteIndexHead;
 	for (int64 i = Max(0ll, -writeIndexHead), j = 0; i < sampleReadCount; ++i, ++j)
 	{
-		//const int64 readIndex = startIndex + i;
+		releaseKey.use();
 		const int64 readIndex = i;
-		//const int64 readIndex = startIndex + j;
 		const int64 writeIndex = writeIndexHead + i;
-		//const double time = 1.0 * (startPos + writeIndex) / sourceWave.sampleRate();
-		//const double currentLevel = currentVolume;
 
-		//if (1.0 * targetEvent.releaseTimePos / sourceWave.sampleRate() + envelope.releaseTime < time)
-		//{
-		//	break;
-		//}
-
-		const auto blendIndex = (startPos + writeIndex) - targetEvent.releaseTimePos;
-		if (1 <= noteIndex && m_noteEvents[noteIndex - 1].releaseIndex != -1 && blendIndex < BlendSampleCount)
-		{
-			const auto& prevEvent = m_noteEvents[noteIndex - 1];
-
-			const auto& prevReleaseKey = releaseKeys[prevEvent.releaseIndex];
-			const auto [prevReadCount, prevEmptyCount] = readEmptyCountRelease(startPos, sampleCount, noteIndex - 1);
-
-			//const double prevVolume = 1;
-
-			//const double prevLevel = envelope.level(prevEvent.pressTime, prevEvent.releaseTime, time);
-			//const double prevLevel = envelope.level(prevEvent, time) * prevVolume;
-
-			//Console << U"  " << Vec3(prevEvent.pressTime, prevEvent.releaseTime, time) << U"" << U" -> " << prevLevel;
-
-			const int64 prevReadIndex = prevWriteCount + i;
-			const auto sample0 = (prevReadIndex < static_cast<int64>(prevReleaseKey.lengthSample()) ? prevReleaseKey.getSample(prevReadIndex) : WaveSample::Zero());
-			const auto sample1 = releaseKey.getSample(readIndex);
-			const double t = 1.0 * blendIndex / BlendSampleCount;
-			const auto blendSample = sample0.lerp(sample1, t);
-			left[writeIndex] += blendSample.left;
-			right[writeIndex] += blendSample.right;
-		}
-		else
-		{
-			const auto sample1 = releaseKey.getSample(readIndex);
-			left[writeIndex] += sample1.left;
-			right[writeIndex] += sample1.right;
-		}
+		const auto sample1 = releaseKey.getSample(readIndex);
+		left[writeIndex] += sample1.left;
+		right[writeIndex] += sample1.right;
 	}
 }
 
@@ -493,17 +439,15 @@ int64 AudioKey::getWriteIndexHeadRelease(int64 startPos, int64 noteIndex) const
 	return targetEvent.releaseTimePos - startPos;
 }
 
-std::pair<int64, int64> AudioKey::readEmptyCountRelease(int64 startPos, int64 sampleCount, int64 noteIndex) const
+int64 AudioKey::readCountRelease(int64 startPos, int64 sampleCount, int64 noteIndex) const
 {
 	const auto& targetEvent = m_noteEvents[noteIndex];
 	const auto& releaseKey = releaseKeys[targetEvent.releaseIndex];
-	const auto maxGateSamples = noteIndex + 1 < static_cast<int64>(m_noteEvents.size()) ? m_noteEvents[noteIndex + 1].releaseTimePos - m_noteEvents[noteIndex].pressTimePos : static_cast<int64>(releaseKey.lengthSample());
-	const auto maxReadCount = Min(static_cast<int64>(releaseKey.lengthSample()), maxGateSamples);
+	const auto maxReadCount = static_cast<int64>(releaseKey.lengthSample());
 	const int64 writeIndexHead = getWriteIndexHeadRelease(startPos, noteIndex);
 
 	const auto maxWriteCount = sampleCount - writeIndexHead;
 	const auto sampleReadCount = Min(maxWriteCount, maxReadCount);
-	const auto sampleEmptyCount = Min(maxWriteCount, maxGateSamples);
 
-	return std::make_pair(sampleReadCount, sampleEmptyCount);
+	return sampleReadCount;
 }

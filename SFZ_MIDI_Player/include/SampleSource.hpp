@@ -184,5 +184,5 @@ private:
 
 	int64 getWriteIndexHeadRelease(int64 startPos, int64 noteIndex) const;
 
-	std::pair<int64, int64> readEmptyCountRelease(int64 startPos, int64 sampleCount, int64 noteIndex) const;
+	int64 readCountRelease(int64 startPos, int64 sampleCount, int64 noteIndex) const;
 };
