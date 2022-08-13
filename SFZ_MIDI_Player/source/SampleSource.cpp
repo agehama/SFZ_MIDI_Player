@@ -274,7 +274,8 @@ void AudioKey::getSamples(float* left, float* right, int64 startPos, int64 sampl
 		render(left, right, startPos, sampleCount, noteIndex);
 	}
 
-	for (int64 noteIndex = 0; noteIndex < m_noteEvents.size(); ++noteIndex)
+	// todo: 必要なインデックスだけ見るようにする
+	for (int64 noteIndex = 0; noteIndex < static_cast<int64>(m_noteEvents.size()); ++noteIndex)
 	{
 		renderRelease(left, right, startPos, sampleCount, noteIndex);
 	}
@@ -337,37 +338,43 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 		const double time = 1.0 * (startPos + writeIndex) / attackKey.sampleRate();
 		const double currentLevel = envelope.level(targetEvent, time) * currentVolume;
 
-		if (1.0 * targetEvent.releaseTimePos / attackKey.sampleRate() + envelope.noteTime(targetEvent) < time)
+		if (1.0 * targetEvent.pressTimePos / attackKey.sampleRate() + envelope.noteTime(targetEvent) < time)
 		{
 			break;
 		}
 
 		attackKey.use();
 
+		bool isBlendSample = false;
+
 		const auto blendIndex = (startPos + writeIndex) - targetEvent.pressTimePos;
 		if (1 <= noteIndex && blendIndex < BlendSampleCount)
 		{
 			const auto& prevEvent = m_noteEvents[noteIndex - 1];
 			auto& prevAttackKey = attackKeys[prevEvent.attackIndex];
-			prevAttackKey.use();
-			const auto [prevReadCount, prevEmptyCount] = readEmptyCount(startPos, sampleCount, noteIndex - 1);
 
-			const double prevVolume = prevEvent.velocity / 127.0;
+			if (time < 1.0 * prevEvent.pressTimePos / attackKey.sampleRate() + prevAttackKey.envelope().noteTime(prevEvent))
+			{
+				prevAttackKey.use();
+				const auto [prevReadCount, prevEmptyCount] = readEmptyCount(startPos, sampleCount, noteIndex - 1);
 
-			//const double prevLevel = envelope.level(prevEvent.pressTime, prevEvent.releaseTime, time);
-			const double prevLevel = envelope.level(prevEvent, time) * prevVolume;
-
-			//Console << U"  " << Vec3(prevEvent.pressTime, prevEvent.releaseTime, time) << U"" << U" -> " << prevLevel;
-
-			const int64 prevReadIndex = prevWriteCount + i;
-			const auto sample0 = (prevReadIndex < static_cast<int64>(prevAttackKey.lengthSample()) ? prevAttackKey.getSample(prevReadIndex) : WaveSample::Zero()) * static_cast<float>(prevLevel);
-			const auto sample1 = attackKey.getSample(readIndex) * static_cast<float>(currentLevel);
-			const double t = 1.0 * blendIndex / BlendSampleCount;
-			const auto blendSample = sample0.lerp(sample1, t);
-			left[writeIndex] += blendSample.left;
-			right[writeIndex] += blendSample.right;
+				const double prevVolume = prevEvent.velocity / 127.0;
+				const double prevLevel = envelope.level(prevEvent, time) * prevVolume;
+				const int64 prevReadIndex = prevWriteCount + i;
+				if (prevReadIndex < static_cast<int64>(prevAttackKey.lengthSample()))
+				{
+					const auto sample0 = prevAttackKey.getSample(prevReadIndex) * static_cast<float>(prevLevel);
+					const auto sample1 = attackKey.getSample(readIndex) * static_cast<float>(currentLevel);
+					const double t = 1.0 * blendIndex / BlendSampleCount;
+					const auto blendSample = sample0.lerp(sample1, t);
+					left[writeIndex] += blendSample.left;
+					right[writeIndex] += blendSample.right;
+					isBlendSample = true;
+				}
+			}
 		}
-		else
+
+		if (!isBlendSample)
 		{
 			const auto sample1 = attackKey.getSample(readIndex) * static_cast<float>(currentLevel);
 			left[writeIndex] += sample1.left;

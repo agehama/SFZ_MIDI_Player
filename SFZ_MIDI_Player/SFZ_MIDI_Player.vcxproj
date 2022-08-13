@@ -120,6 +120,8 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="source\AudioLoadManager.cpp" />
     <ClCompile Include="source\FlacLoader.cpp" />
+    <ClCompile Include="source\MemoryBlockList.cpp" />
+    <ClCompile Include="source\MemoryPool.cpp" />
     <ClCompile Include="source\MIDILoader.cpp" />
     <ClCompile Include="source\PianoRoll.cpp" />
     <ClCompile Include="source\SamplePlayer.cpp" />
@@ -329,6 +331,8 @@
     <ClInclude Include="include\AudioLoaderBase.hpp" />
     <ClInclude Include="include\AudioLoadManager.hpp" />
     <ClInclude Include="include\FlacLoader.hpp" />
+    <ClInclude Include="include\MemoryBlockList.hpp" />
+    <ClInclude Include="include\MemoryPool.hpp" />
     <ClInclude Include="include\MIDILoader.hpp" />
     <ClInclude Include="include\PianoRoll.hpp" />
     <ClInclude Include="include\SamplePlayer.hpp" />
