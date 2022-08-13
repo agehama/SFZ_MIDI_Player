@@ -3,6 +3,10 @@
 #include <MemoryBlockList.hpp>
 #include <MemoryPool.hpp>
 
+MemoryBlockList::MemoryBlockList(size_t id) :
+	m_id(id)
+{}
+
 void MemoryBlockList::allocate(size_t beginDataPos, size_t sizeOfBytes)
 {
 	assert(beginDataPos % MemoryPool::UnitBlockSizeOfBytes == 0);
@@ -15,7 +19,7 @@ void MemoryBlockList::allocate(size_t beginDataPos, size_t sizeOfBytes)
 	{
 		if (!m_blocks.contains(i))
 		{
-			auto [buffer, blockIndex] = memoryPool.allocateBlock();
+			auto [buffer, blockIndex] = memoryPool.allocateBlock(m_id);
 			m_blocks[i] = BlockInfo{ static_cast<uint8*>(buffer), blockIndex};
 		}
 	}
@@ -54,8 +58,6 @@ void MemoryBlockList::deallocate()
 
 std::pair<uint8*, size_t> MemoryBlockList::getWriteBuffer(size_t beginDataPos, size_t expectSizeOfBytes) const
 {
-	auto& memoryPool = MemoryPool::i();
-
 	const uint32 blockIndex = static_cast<uint32>(beginDataPos / MemoryPool::UnitBlockSizeOfBytes);
 
 	const uint32 dataOffset = static_cast<uint32>(beginDataPos) - blockIndex * MemoryPool::UnitBlockSizeOfBytes;

@@ -7,7 +7,7 @@ class WaveLoader : public AudioLoaderBase
 {
 public:
 
-	WaveLoader(FilePathView path);
+	WaveLoader(FilePathView path, size_t id);
 
 	virtual ~WaveLoader() = default;
 
@@ -57,5 +57,6 @@ private:
 	bool m_use = false;
 	size_t m_loadSampleCount = 0;
 	MemoryBlockList m_readBlocks;
+
 	static std::mutex m_mutex;
 };

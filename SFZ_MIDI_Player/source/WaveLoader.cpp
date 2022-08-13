@@ -13,9 +13,10 @@ struct RiffChunk
 	char format[4];
 };
 
-WaveLoader::WaveLoader(FilePathView path) :
+WaveLoader::WaveLoader(FilePathView path, size_t id) :
 	m_waveReader(path),
-	m_filePath(path)
+	m_filePath(path),
+	m_readBlocks(id)
 {
 	init();
 	m_waveReader.close();
@@ -137,7 +138,7 @@ void WaveLoader::update()
 	m_mutex.lock();
 
 	++m_unuseCount;
-	if (m_use && 60 < m_unuseCount)
+	if (m_use && 5 < m_unuseCount)
 	{
 		unuse();
 	}

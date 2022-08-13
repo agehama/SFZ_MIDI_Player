@@ -11,10 +11,17 @@ void MemoryPool::setCapacity(size_t sizeOfBytes)
 	m_buffer.resize(blockCount * UnitBlockSizeOfBytes);
 	m_buffer.shrink_to_fit();
 
-	m_freeBlocks.reserve(blockCount);
 	for (uint32 i = 0; i < blockCount; ++i)
 	{
-		m_freeBlocks.emplace(i);
+		m_freeBlocks.push_back(i);
+	}
+
+	{
+		const int32 width = Math::Round(Sqrt(blockCount));
+		const int32 height = static_cast<int32>(Math::Ceil(1.0 * blockCount / width));
+
+		m_debugImage = Image(width, height, Palette::Black);
+		m_debugTexture = DynamicTexture(m_debugImage);
 	}
 }
 
@@ -23,13 +30,28 @@ size_t MemoryPool::blockCount() const
 	return m_buffer.size() / UnitBlockSizeOfBytes;
 }
 
-std::pair<void*, uint32> MemoryPool::allocateBlock()
+size_t MemoryPool::freeBlockCount() const
+{
+	return m_freeBlocks.size();
+}
+
+void MemoryPool::sortFreeBlock(size_t beginIndex, size_t endIndex)
+{
+	std::sort(m_freeBlocks.begin() + beginIndex, m_freeBlocks.begin() + endIndex);
+}
+
+std::pair<void*, uint32> MemoryPool::allocateBlock(size_t ownerId)
 {
 	assert(!m_freeBlocks.empty());
 
 	const auto freeBlockIndex = *m_freeBlocks.begin();
+	m_freeBlocks.pop_front();
 
-	m_freeBlocks.erase(freeBlockIndex);
+	{
+		const auto y = static_cast<int32>(freeBlockIndex / m_debugImage.width());
+		const auto x = static_cast<int32>(freeBlockIndex % m_debugImage.width());
+		m_debugImage[y][x] = HSV(ownerId * 10.0, 1.0, 1.0 - 0.1 * ((ownerId / 36) % 5));
+	}
 
 	auto ptr = m_buffer.data() + freeBlockIndex * UnitBlockSizeOfBytes;
 	return std::make_pair(ptr, freeBlockIndex);
@@ -37,5 +59,24 @@ std::pair<void*, uint32> MemoryPool::allocateBlock()
 
 void MemoryPool::deallocateBlock(uint32 blockIndex)
 {
-	m_freeBlocks.emplace(blockIndex);
+	{
+		const auto y = static_cast<int32>(blockIndex / m_debugImage.width());
+		const auto x = static_cast<int32>(blockIndex % m_debugImage.width());
+		m_debugImage[y][x] = Palette::Black;
+	}
+
+	m_freeBlocks.push_front(blockIndex);
+}
+
+void MemoryPool::debugUpdate()
+{
+	m_debugTexture.fillIfNotBusy(m_debugImage);
+}
+
+void MemoryPool::debugDraw() const
+{
+	const double scale = 0.8 * Min(1.0 * Scene::Height() / m_debugTexture.height(), 1.0 * Scene::Width() / m_debugTexture.width());
+
+	ScopedRenderStates2D rs(SamplerState::ClampNearest);
+	m_debugTexture.scaled(scale).drawAt(Scene::Center());
 }
