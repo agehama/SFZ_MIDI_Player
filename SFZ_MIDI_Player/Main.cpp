@@ -6,6 +6,7 @@
 #include <MIDILoader.hpp>
 #include <SampleSource.hpp>
 #include <AudioLoadManager.hpp>
+#include <MemoryPool.hpp>
 
 //#define DEBUG_MODE
 
@@ -22,6 +23,8 @@ void Main()
 	Window::Resize(1280, 1280);
 	const auto [keyboardArea, pianorollArea] = SplitLeftRight(Scene::Rect(), 0.1);
 #endif
+
+	MemoryPool::i().setCapacity(512ull << 20);
 
 	const auto data = LoadSfz(U"sound/Grand Piano, Kawai.sfz");
 

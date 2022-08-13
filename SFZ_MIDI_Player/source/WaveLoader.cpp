@@ -107,7 +107,6 @@ void WaveLoader::use()
 
 	{
 		m_loadSampleCount = 0;
-		m_readBuffer.resize(m_dataSizeOfBytes);
 
 		if (!m_waveReader.isOpen())
 		{
@@ -147,10 +146,9 @@ void WaveLoader::update()
 	{
 		readBlock();
 	}
-	else if (!m_readBuffer.empty())
+	else
 	{
-		m_readBuffer.clear();
-		m_readBuffer.shrink_to_fit();
+		m_readBlocks.deallocate();
 		m_loadSampleCount = 0;
 	}
 
@@ -175,44 +173,58 @@ WaveSample WaveLoader::getSample(int64 index) const
 	{
 		if (m_format.bitsPerSample == 8)
 		{
-			const auto& sample = m_readBuffer[index];
-			return WaveSample(sample * m_normalize, sample * m_normalize);
+			auto [ptr, actualReadBytes] = m_readBlocks.getWriteBuffer(index * m_format.blockAlign, sizeof(int8));
+			const auto pSample = std::bit_cast<int8*>(ptr);
+			return WaveSample(*pSample * m_normalize, *pSample * m_normalize);
 		}
 		else// if (m_format.bitsPerSample == 16)
 		{
-			auto buffer = std::bit_cast<int16*>(m_readBuffer.data());
-			const auto& sample = buffer[index];
-			return WaveSample(sample * m_normalize, sample * m_normalize);
+			auto [ptr, actualReadBytes] = m_readBlocks.getWriteBuffer(index * m_format.blockAlign, sizeof(int16));
+			const auto pSample = std::bit_cast<int16*>(ptr);
+			return WaveSample(*pSample * m_normalize, *pSample * m_normalize);
 		}
 	}
 	else
 	{
 		if (m_format.bitsPerSample == 8)
 		{
-			auto buffer = std::bit_cast<Sample8bit2ch*>(m_readBuffer.data());
-			const auto& sample = buffer[index];
-			return WaveSample(sample.left * m_normalize, sample.right * m_normalize);
+			auto [ptr, actualReadBytes] = m_readBlocks.getWriteBuffer(index * m_format.blockAlign, sizeof(Sample8bit2ch));
+			const auto pSample = std::bit_cast<Sample8bit2ch*>(ptr);
+			return WaveSample(pSample->left * m_normalize, pSample->right * m_normalize);
 		}
 		else// if (m_format.bitsPerSample == 16)
 		{
-			auto buffer = std::bit_cast<Sample16bit2ch*>(m_readBuffer.data());
-			const auto& sample = buffer[index];
-			return WaveSample(sample.left * m_normalize, sample.right * m_normalize);
+			auto [ptr, actualReadBytes] = m_readBlocks.getWriteBuffer(index * m_format.blockAlign, sizeof(Sample16bit2ch));
+			const auto pSample = std::bit_cast<Sample16bit2ch*>(ptr);
+			return WaveSample(pSample->left * m_normalize, pSample->right * m_normalize);
 		}
 	}
 }
 
 void WaveLoader::readBlock()
 {
-	size_t readCount = 1024;
+	size_t readCount = 2048;
 	if (m_lengthSample <= m_loadSampleCount + readCount)
 	{
-		readCount = m_loadSampleCount - m_lengthSample;
+		readCount = m_lengthSample - m_loadSampleCount;
 	}
 
 	if (1 <= readCount)
 	{
-		m_waveReader.read(m_readBuffer.data() + m_loadSampleCount * m_format.blockAlign, readCount * m_format.blockAlign);
+		size_t readHead = m_loadSampleCount * m_format.blockAlign;
+		size_t requiredReadBytes = readCount * m_format.blockAlign;
+
+		m_readBlocks.allocate((readHead / MemoryPool::UnitBlockSizeOfBytes) * MemoryPool::UnitBlockSizeOfBytes, requiredReadBytes);
+
+		while (1 <= requiredReadBytes)
+		{
+			auto [ptr, actualReadBytes] = m_readBlocks.getWriteBuffer(readHead, requiredReadBytes);
+			readHead += actualReadBytes;
+			requiredReadBytes -= actualReadBytes;
+
+			m_waveReader.read(ptr, actualReadBytes);
+		}
+
 		m_loadSampleCount += readCount;
 	}
 }

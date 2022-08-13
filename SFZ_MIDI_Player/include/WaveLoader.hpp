@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
 #include "AudioLoaderBase.hpp"
+#include "MemoryBlockList.hpp"
 
 class WaveLoader : public AudioLoaderBase
 {
@@ -55,6 +56,6 @@ private:
 	uint32 m_unuseCount = 0;
 	bool m_use = false;
 	size_t m_loadSampleCount = 0;
-	Array<int8> m_readBuffer;
+	MemoryBlockList m_readBlocks;
 	static std::mutex m_mutex;
 };
