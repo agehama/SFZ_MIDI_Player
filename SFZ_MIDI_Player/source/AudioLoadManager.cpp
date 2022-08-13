@@ -16,7 +16,7 @@ size_t AudioLoadManager::load(FilePathView path)
 	const auto i = m_paths.size();
 	if (FileSystem::Extension(path) == U"wav")
 	{
-		m_waveReaders.push_back(std::make_unique<WaveLoader>(path));
+		m_waveReaders.push_back(std::make_unique<WaveLoader>(path, i));
 	}
 	else if (FileSystem::Extension(path) == U"flac")
 	{

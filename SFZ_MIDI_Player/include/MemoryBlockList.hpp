@@ -6,7 +6,7 @@ class MemoryBlockList
 {
 public:
 
-	MemoryBlockList() = default;
+	MemoryBlockList(size_t id);
 
 	// assert(beginDataPos % MemoryPool::UnitBlockSizeOfBytes == 0)
 	void allocate(size_t beginDataPos, size_t sizeOfBytes);
@@ -33,4 +33,6 @@ private:
 
 	// key: 波形データの先頭からのブロックインデックス
 	std::map<uint32, BlockInfo> m_blocks;
+
+	size_t m_id;
 };

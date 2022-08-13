@@ -24,7 +24,8 @@ void Main()
 	const auto [keyboardArea, pianorollArea] = SplitLeftRight(Scene::Rect(), 0.1);
 #endif
 
-	MemoryPool::i().setCapacity(512ull << 20);
+	auto& memoryPool = MemoryPool::i();
+	memoryPool.setCapacity(128ull << 20);
 
 	const auto data = LoadSfz(U"sound/Grand Piano, Kawai.sfz");
 
@@ -54,9 +55,15 @@ void Main()
 	std::thread audioStreamThread(audioStreamUpdate);
 
 	Graphics::SetVSyncEnabled(false);
+	bool debugDraw = false;
 
 	while (System::Update())
 	{
+		if (KeyD.down())
+		{
+			debugDraw = !debugDraw;
+		}
+
 		if (DragDrop::HasNewFilePaths())
 		{
 			const auto filepath = DragDrop::GetDroppedFilePaths().front();
@@ -114,6 +121,13 @@ void Main()
 		pianoRoll.drawVertical(player.keyMin(), player.keyMax(), midiData);
 		player.drawVertical(pianoRoll, midiData);
 #endif
+
+		memoryPool.debugUpdate();
+
+		if (debugDraw)
+		{
+			memoryPool.debugDraw();
+		}
 	}
 
 	AudioLoadManager::i().finish();
