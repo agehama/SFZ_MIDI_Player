@@ -53,6 +53,8 @@ void Main()
 
 	std::thread audioStreamThread(audioStreamUpdate);
 
+	Graphics::SetVSyncEnabled(false);
+
 	while (System::Update())
 	{
 		if (DragDrop::HasNewFilePaths())
