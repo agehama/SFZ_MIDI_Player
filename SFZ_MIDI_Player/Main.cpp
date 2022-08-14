@@ -45,9 +45,13 @@ void Main()
 
 	auto audioStreamUpdate = []()
 	{
-		while (AudioLoadManager::i().isRunning())
+		auto& audioManager = AudioLoadManager::i();
+		while (!audioManager.isFinish())
 		{
-			AudioLoadManager::i().update();
+			if (audioManager.isRunning())
+			{
+				audioManager.update();
+			}
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
 	};
@@ -81,7 +85,9 @@ void Main()
 				pianoRoll.pause();
 				audio.pause();
 
+				AudioLoadManager::i().pause();
 				player.loadData(LoadSfz(filepath.path));
+				AudioLoadManager::i().resume();
 
 				pianoRoll.resume();
 				audio.play();

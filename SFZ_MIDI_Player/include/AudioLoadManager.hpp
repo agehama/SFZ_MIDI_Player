@@ -20,9 +20,15 @@ public:
 
 	AudioLoaderBase& reader(size_t index);
 
-	bool isRunning() const { return m_isRunning; }
+	bool isFinish() const { return m_isFinish; }
 
-	void finish() { m_isRunning = false; }
+	bool isRunning() const { return !m_isPause && !m_isFinish; }
+
+	void finish() { m_isFinish = true; }
+
+	void pause() { m_isPause = true; }
+
+	void resume() { m_isPause = false; }
 
 private:
 
@@ -30,5 +36,6 @@ private:
 
 	Array<std::unique_ptr<AudioLoaderBase>> m_waveReaders;
 	Array<String> m_paths;
-	bool m_isRunning = true;
+	bool m_isPause = false;
+	bool m_isFinish = false;
 };
