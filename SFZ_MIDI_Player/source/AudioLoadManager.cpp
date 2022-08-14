@@ -20,7 +20,7 @@ size_t AudioLoadManager::load(FilePathView path)
 	}
 	else if (FileSystem::Extension(path) == U"flac")
 	{
-		m_waveReaders.push_back(std::make_unique<FlacLoader>(path));
+		m_waveReaders.push_back(std::make_unique<FlacLoader>(path, i));
 	}
 	else
 	{
@@ -39,6 +39,15 @@ void AudioLoadManager::update()
 	for (auto& reader : m_waveReaders)
 	{
 		reader->update();
+	}
+
+	// 長時間起動したときのキャッシュ効率の低下を防ぐために空きブロックを少しずつソートする
+	{
+		auto& memoryPool = MemoryPool::i();
+		const size_t unitSortCount = 8192;//400[us]くらい
+		const size_t blockCount = memoryPool.freeBlockCount();
+		auto sortBegin = Random(0ull, blockCount - unitSortCount);
+		memoryPool.sortFreeBlock(sortBegin, sortBegin + unitSortCount);
 	}
 }
 

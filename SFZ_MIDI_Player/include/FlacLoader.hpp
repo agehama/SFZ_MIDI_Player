@@ -8,7 +8,7 @@ class FlacLoader : public AudioLoaderBase
 {
 public:
 
-	FlacLoader(FilePathView path);
+	FlacLoader(FilePathView path, size_t debugId);
 
 	virtual ~FlacLoader() = default;
 

@@ -21,3 +21,15 @@ public:
 
 	virtual WaveSample getSample(int64 index) const = 0;
 };
+
+struct Sample16bit2ch
+{
+	int16 left;
+	int16 right;
+};
+
+struct Sample8bit2ch
+{
+	int8 left;
+	int8 right;
+};

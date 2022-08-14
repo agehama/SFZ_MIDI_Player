@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <FlacLoader.hpp>
+#include <MemoryBlockList.hpp>
 
 #define FLAC__NO_DLL
 #include <FLAC++/decoder.h>
@@ -9,10 +10,11 @@ class FlacDecoder : public FLAC::Decoder::Stream
 {
 public:
 
-	FlacDecoder(FilePathView path) :
+	FlacDecoder(FilePathView path, size_t debugId) :
 		FLAC::Decoder::Stream(),
 		m_filePath(path),
-		m_fileReader(path)
+		m_fileReader(path),
+		m_readBlocks(debugId)
 	{}
 
 	FLAC__uint64 m_lengthSample = 0;
@@ -21,10 +23,11 @@ public:
 	uint32_t m_channels = 0;
 	uint32_t m_bitsPerSample = 0;
 
-	float m_normalize = 0;
+	float m_normalizeRead = 0;
+	float m_normalizeWrite = 0;
 	bool m_initialized = false;
 
-	Array<WaveSample> m_readBuffer;
+	MemoryBlockList m_readBlocks;
 	size_t m_loadSampleCount = 0;
 	size_t m_readPos = 0;
 
@@ -42,6 +45,20 @@ public:
 	void close()
 	{
 		m_fileReader.close();
+	}
+
+	WaveSample getSample(int64 index) const
+	{
+		const size_t blockAlign = sizeof(uint16) * 2;
+		auto [ptr, actualReadBytes] = m_readBlocks.getWriteBuffer(index * blockAlign, sizeof(Sample16bit2ch));
+		const auto pSample = std::bit_cast<Sample16bit2ch*>(ptr);
+		return WaveSample(pSample->left * m_normalizeWrite, pSample->right * m_normalizeWrite);
+	}
+
+	void releaseBuffer()
+	{
+		m_readBlocks.deallocate();
+		m_loadSampleCount = 0;
 	}
 
 protected:
@@ -89,51 +106,73 @@ protected:
 
 	::FLAC__StreamDecoderWriteStatus write_callback(const ::FLAC__Frame* frame, const FLAC__int32* const buffer[]) override
 	{
-		if (m_loadSampleCount < m_readBuffer.size())
+		// とりあえず16bit2ch固定
+		const size_t blockAlign = sizeof(uint16) * 2;
+
+		size_t readHead = m_loadSampleCount * blockAlign;
+		size_t requiredReadBytes = frame->header.blocksize * blockAlign;
 		{
-			if (m_channels == 1)
+			const size_t allocateBegin = (readHead / MemoryPool::UnitBlockSizeOfBytes) * MemoryPool::UnitBlockSizeOfBytes;
+			const size_t allocateEnd = readHead + requiredReadBytes;
+
+			m_readBlocks.allocate(allocateBegin, allocateEnd - allocateBegin);
+		}
+
+		if (m_channels == 1)
+		{
+			auto mono = buffer[0];
+
+			while (1 <= requiredReadBytes)
 			{
-				if (m_bitsPerSample == 16)
+				auto [ptr, actualReadBytes] = m_readBlocks.getWriteBuffer(readHead, requiredReadBytes);
+				readHead += actualReadBytes;
+				requiredReadBytes -= actualReadBytes;
+
+				auto pSample = std::bit_cast<Sample16bit2ch*>(ptr);
+
+				const size_t readCount = actualReadBytes / blockAlign;
+
+				//if (m_bitsPerSample == 16)
 				{
-					for (size_t i = 0; i < frame->header.blocksize; i++)
+					for (size_t i = 0; i < readCount; i++)
 					{
-						m_readBuffer[m_loadSampleCount].left = m_readBuffer[m_loadSampleCount].right =
-							static_cast<FLAC__int16>(buffer[0][i]) * m_normalize;
-						++m_loadSampleCount;
+						pSample[i].left = pSample[i].right = static_cast<int16>(mono[i] * m_normalizeRead * 32767);
 					}
 				}
-				else
-				{
-					for (size_t i = 0; i < frame->header.blocksize; i++)
-					{
-						m_readBuffer[m_loadSampleCount].left = m_readBuffer[m_loadSampleCount].right =
-							buffer[0][i] * m_normalize;
-						++m_loadSampleCount;
-					}
-				}
-			}
-			else
-			{
-				if (m_bitsPerSample == 16)
-				{
-					for (size_t i = 0; i < frame->header.blocksize; i++)
-					{
-						m_readBuffer[m_loadSampleCount].left = static_cast<FLAC__int16>(buffer[0][i]) * m_normalize;
-						m_readBuffer[m_loadSampleCount].right = static_cast<FLAC__int16>(buffer[1][i]) * m_normalize;
-						++m_loadSampleCount;
-					}
-				}
-				else
-				{
-					for (size_t i = 0; i < frame->header.blocksize; i++)
-					{
-						m_readBuffer[m_loadSampleCount].left = buffer[0][i] * m_normalize;
-						m_readBuffer[m_loadSampleCount].right = buffer[1][i] * m_normalize;
-						++m_loadSampleCount;
-					}
-				}
+
+				mono += readCount;
 			}
 		}
+		else
+		{
+			auto left = buffer[0];
+			auto right = buffer[1];
+
+			while (1 <= requiredReadBytes)
+			{
+				auto [ptr, actualReadBytes] = m_readBlocks.getWriteBuffer(readHead, requiredReadBytes);
+				readHead += actualReadBytes;
+				requiredReadBytes -= actualReadBytes;
+
+				auto pSample = std::bit_cast<Sample16bit2ch*>(ptr);
+
+				const size_t readCount = actualReadBytes / blockAlign;
+
+				//if (m_bitsPerSample == 16)
+				{
+					for (size_t i = 0; i < readCount; i++)
+					{
+						pSample[i].left = static_cast<int16>(left[i] * m_normalizeRead * 32767);
+						pSample[i].right = static_cast<int16>(right[i] * m_normalizeRead * 32767);
+					}
+				}
+
+				left += readCount;
+				right += readCount;
+			}
+		}
+
+		m_loadSampleCount += frame->header.blocksize;
 
 		return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
 	}
@@ -147,8 +186,10 @@ protected:
 			m_channels = metadata->data.stream_info.channels;
 			m_bitsPerSample = metadata->data.stream_info.bits_per_sample;
 			m_dataSize = m_lengthSample * m_channels * (m_bitsPerSample / 8);
-			m_normalize = 1.f / std::powf(2.0f, static_cast<float>(m_bitsPerSample) - 1);
+			m_normalizeRead = 1.f / std::powf(2.0f, static_cast<float>(m_bitsPerSample) - 1);
+			m_normalizeWrite = 1.f / 32767.0f;
 			m_initialized = true;
+			m_loadSampleCount = 0;
 		}
 	}
 
@@ -162,8 +203,8 @@ private:
 	FlacDecoder& operator=(const FlacDecoder&) = default;
 };
 
-FlacLoader::FlacLoader(FilePathView path) :
-	m_flacDecoder(std::make_unique<FlacDecoder>(path))
+FlacLoader::FlacLoader(FilePathView path, size_t debugId) :
+	m_flacDecoder(std::make_unique<FlacDecoder>(path, debugId))
 {
 	init();
 	m_flacDecoder->close();
@@ -225,9 +266,6 @@ void FlacLoader::use()
 	m_mutex.lock();
 
 	{
-		m_flacDecoder->m_loadSampleCount = 0;
-		m_flacDecoder->m_readBuffer.resize(m_flacDecoder->m_dataSize);
-
 		readBlock();
 
 		m_use = true;
@@ -247,7 +285,7 @@ void FlacLoader::update()
 	m_mutex.lock();
 
 	++m_unuseCount;
-	if (m_use && 60 < m_unuseCount)
+	if (m_use && 5 < m_unuseCount)
 	{
 		unuse();
 	}
@@ -256,13 +294,10 @@ void FlacLoader::update()
 	{
 		readBlock();
 	}
-	else if(!m_flacDecoder->m_readBuffer.empty())
+	else if (1 <= m_flacDecoder->m_loadSampleCount)
 	{
-		m_flacDecoder->m_readBuffer.clear();
-		m_flacDecoder->m_readBuffer.shrink_to_fit();
-		m_flacDecoder->m_readPos = 0;
-		//m_waveReader.setPos(m_dataPos);
-		m_flacDecoder->m_loadSampleCount = 0;
+		m_flacDecoder->releaseBuffer();
+		m_flacDecoder->reset();
 	}
 
 	m_mutex.unlock();
@@ -270,7 +305,13 @@ void FlacLoader::update()
 
 WaveSample FlacLoader::getSample(int64 index) const
 {
-	return m_flacDecoder->m_readBuffer[index];
+	//const bool isValidIndex = 0 <= index && index < m_flacDecoder->m_lengthSample;
+	//if (!isValidIndex)
+	//{
+	//	Console << U"error: FlacLoader::getSample() invalid sample index: " << index;
+	//}
+
+	return m_flacDecoder->getSample(index);
 }
 
 void FlacLoader::readBlock()
@@ -278,6 +319,12 @@ void FlacLoader::readBlock()
 	if (!m_flacDecoder->isOpen())
 	{
 		m_flacDecoder->restore();
+	}
+
+	if (auto state = static_cast<FLAC__StreamDecoderState>(m_flacDecoder->get_state());
+		state == FLAC__STREAM_DECODER_SEARCH_FOR_METADATA || state == FLAC__STREAM_DECODER_READ_METADATA)
+	{
+		m_flacDecoder->process_until_end_of_metadata();
 	}
 
 	m_flacDecoder->process_single();

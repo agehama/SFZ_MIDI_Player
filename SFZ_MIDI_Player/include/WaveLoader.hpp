@@ -7,7 +7,7 @@ class WaveLoader : public AudioLoaderBase
 {
 public:
 
-	WaveLoader(FilePathView path, size_t id);
+	WaveLoader(FilePathView path, size_t debugId);
 
 	virtual ~WaveLoader() = default;
 

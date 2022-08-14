@@ -13,10 +13,10 @@ struct RiffChunk
 	char format[4];
 };
 
-WaveLoader::WaveLoader(FilePathView path, size_t id) :
+WaveLoader::WaveLoader(FilePathView path, size_t debugId) :
 	m_waveReader(path),
 	m_filePath(path),
-	m_readBlocks(id)
+	m_readBlocks(debugId)
 {
 	init();
 	m_waveReader.close();
@@ -92,7 +92,7 @@ void WaveLoader::init()
 
 	m_lengthSample = m_dataSizeOfBytes / m_format.blockAlign;
 	m_sampleRate = m_format.samplePerSecond;
-	m_normalize = 1.f / 32768.0f;
+	m_normalize = 1.f / 32767.0f;
 }
 
 void WaveLoader::use()
@@ -156,18 +156,6 @@ void WaveLoader::update()
 	m_mutex.unlock();
 }
 
-struct Sample16bit2ch
-{
-	int16 left;
-	int16 right;
-};
-
-struct Sample8bit2ch
-{
-	int8 left;
-	int8 right;
-};
-
 WaveSample WaveLoader::getSample(int64 index) const
 {
 	if (m_format.channels == 1)
@@ -215,7 +203,12 @@ void WaveLoader::readBlock()
 		size_t readHead = m_loadSampleCount * m_format.blockAlign;
 		size_t requiredReadBytes = readCount * m_format.blockAlign;
 
-		m_readBlocks.allocate((readHead / MemoryPool::UnitBlockSizeOfBytes) * MemoryPool::UnitBlockSizeOfBytes, requiredReadBytes);
+		{
+			const size_t allocateBegin = (readHead / MemoryPool::UnitBlockSizeOfBytes) * MemoryPool::UnitBlockSizeOfBytes;
+			const size_t allocateEnd = readHead + requiredReadBytes;
+
+			m_readBlocks.allocate(allocateBegin, allocateEnd - allocateBegin);
+		}
 
 		while (1 <= requiredReadBytes)
 		{
