@@ -76,14 +76,23 @@ struct AudioSource
 {
 public:
 
-	AudioSource(size_t waveIndex, float amplitude, const Envelope& envelope, uint8 lovel, uint8 hivel, int32 tune):
-		m_index(waveIndex),
+	AudioSource(float amplitude, const Envelope& envelope, uint8 lovel, uint8 hivel, int32 tune):
 		m_amplitude(amplitude),
 		m_lovel(lovel),
 		m_hivel(hivel),
 		m_tune(tune),
 		m_envelope(envelope)
+	{}
+
+	void setWaveIndex(size_t index)
 	{
+		m_index = index;
+	}
+
+	void setOscillator(StringView oscillatorName, float frequency)
+	{
+		m_oscillatorName = oscillatorName;
+		m_frequency = frequency;
 	}
 
 	void setSwitch(int8 swLokey, int8 swHikey, int8 swLast, int8 swDefault)
@@ -115,8 +124,12 @@ public:
 
 	void unuse();
 
+	bool isOscillator() const { return !m_oscillatorName.empty(); }
+
 private:
 
+	String m_oscillatorName;
+	float m_frequency;
 	size_t m_index;
 
 	const AudioLoaderBase& getReader() const;

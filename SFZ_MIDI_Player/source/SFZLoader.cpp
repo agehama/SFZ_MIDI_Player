@@ -269,6 +269,8 @@ SfzData LoadSfz(FilePathView sfzPath)
 	RegionSetting group;
 	Optional<RegionSetting> region;
 
+	HashSet<String> unsupportedOpcodes;
+
 	size_t pos = 0;
 	for (;;)
 	{
@@ -292,24 +294,31 @@ SfzData LoadSfz(FilePathView sfzPath)
 		else if (token.starts_with(keySample))
 		{
 			token = token.substr(keySample.length());
-			if (!FileSystem::IsFile(defaultPath + token))
-			{
-				pos += keySample.length();
-				// sampleの場合は空白文字を含める
-				nextPos = text.indexOfAny(U"\t\n", pos);
-				token = text.substrView(pos, nextPos == String::npos ? nextPos : nextPos - pos);
-			}
 
-			// todo: oscillatorの対応を追加する
-			if (FileSystem::IsFile(defaultPath + token))
+			if (token.starts_with(U"*"))
 			{
 				(region ? region.value() : group).sample = token;
 			}
 			else
 			{
-				Console << U"warning: not found sample \"" << (defaultPath + token) << U"\"";
-				Console << U"this region is skipped";
-				region = none;
+				if (!FileSystem::IsFile(defaultPath + token))
+				{
+					pos += keySample.length();
+					// sampleの場合は空白文字を含める
+					nextPos = text.indexOfAny(U"\t\n", pos);
+					token = text.substrView(pos, nextPos == String::npos ? nextPos : nextPos - pos);
+				}
+
+				if (FileSystem::IsFile(defaultPath + token))
+				{
+					(region ? region.value() : group).sample = token;
+				}
+				else
+				{
+					Console << U"warning: not found sample \"" << (defaultPath + token) << U"\"";
+					Console << U"this region is skipped";
+					region = none;
+				}
 			}
 		}
 		else if (token.starts_with(keySwLoKey))
@@ -457,7 +466,23 @@ SfzData LoadSfz(FilePathView sfzPath)
 		}
 		else
 		{
-			Console << U"(" << pos << U":" << nextPos << U") unsupported opcode: \"" << token << U"\"";
+			if (!token.includes(U"label"))
+			{
+				const auto equalPos = token.indexOf(U'=');
+				if (equalPos != String::npos)
+				{
+					const auto opcodeStr = token.substr(0, equalPos);
+					if (!unsupportedOpcodes.contains(opcodeStr))
+					{
+						unsupportedOpcodes.emplace(opcodeStr);
+						Console << U"(" << pos << U":" << nextPos << U") unsupported opcode: \"" << opcodeStr << U"\"";
+					}
+				}
+				else
+				{
+					Console << U"(" << pos << U":" << nextPos << U") unknown token: \"" << token << U"\"";
+				}
+			}
 		}
 
 		if (nextPos == String::npos)

@@ -76,11 +76,24 @@ void AudioSource::setRtDecay(float rtDecay)
 
 size_t AudioSource::sampleRate() const
 {
-	return getReader().sampleRate();
+	if (isOscillator())
+	{
+		return Wave::DefaultSampleRate;
+	}
+	else
+	{
+		return getReader().sampleRate();
+	}
 }
 
 size_t AudioSource::lengthSample() const
 {
+	if (isOscillator())
+	{
+		//return std::numeric_limits<size_t>::max();
+		return Wave::DefaultSampleRate * 100000;
+	}
+
 	const auto& sourceWave = getReader();
 
 	const double speed = std::exp2(m_tune / 1200.0);
@@ -92,6 +105,20 @@ size_t AudioSource::lengthSample() const
 
 WaveSample AudioSource::getSample(int64 index) const
 {
+	if (isOscillator())
+	{
+		if (m_oscillatorName == U"*sine")
+		{
+			const double t = 1.0 * index / Wave::DefaultSampleRate;
+			const float osc = static_cast<float>(sin(t * m_frequency * 2_pi) * m_amplitude);
+			return WaveSample(osc, osc);
+		}
+		else
+		{
+			return WaveSample(0, 0);
+		}
+	}
+
 	const auto& sourceWave = getReader();
 
 	float amplitude = m_amplitude;
@@ -120,12 +147,18 @@ WaveSample AudioSource::getSample(int64 index) const
 
 void AudioSource::use()
 {
-	getReader().use();
+	if (!isOscillator())
+	{
+		getReader().use();
+	}
 }
 
 void AudioSource::unuse()
 {
-	getReader().unuse();
+	if (!isOscillator())
+	{
+		getReader().unuse();
+	}
 }
 
 const AudioLoaderBase& AudioSource::getReader() const
