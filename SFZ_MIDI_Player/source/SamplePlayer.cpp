@@ -77,6 +77,15 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 		audioKey.init(static_cast<int8>(i - 127));
 	}
 
+	HashTable<String, OscillatorType> oscTypes;
+	oscTypes[U"*sine"] = OscillatorType::Sine;
+	oscTypes[U"*tri"] = OscillatorType::Tri;
+	oscTypes[U"*triangle"] = OscillatorType::Tri;
+	oscTypes[U"*saw"] = OscillatorType::Saw;
+	oscTypes[U"*square"] = OscillatorType::Square;
+	oscTypes[U"*noise"] = OscillatorType::Noise;
+	oscTypes[U"*silence"] = OscillatorType::Silence;
+
 	Window::SetTitle(U"音源読み込み中：0 %");
 	for (const auto& [i, data] : Indexed(sfzData.data))
 	{
@@ -84,15 +93,21 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 		Window::SetTitle(Format(U"音源読み込み中：", Math::Round(progress * 100), U" %"));
 
 		const auto samplePath = sfzData.dir + data.sample;
-		if (!FileSystem::IsFile(samplePath))
+
+		Optional<size_t> waveIndexOpt;
+		if (!data.sample.starts_with(U"*"))
 		{
-			Console << U"error: file does not exist: \"" << samplePath << U"\"";
-			continue;
+			if (!FileSystem::IsFile(samplePath))
+			{
+				Console << U"error: file does not exist: \"" << samplePath << U"\"";
+				continue;
+			}
+
+			waveIndexOpt = AudioLoadManager::i().load(samplePath);
 		}
 
 		const Envelope envelope(data.ampeg_attack, data.ampeg_decay, data.ampeg_sustain / 100.0, data.ampeg_release);
 
-		const size_t waveIndex = AudioLoadManager::i().load(samplePath);
 		const float volume = data.volume;
 		const float amplitude = static_cast<float>(std::pow(10.0, volume / 20.0) * 0.5);
 
@@ -104,7 +119,20 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 			const int32 key = index - 127;
 			const int32 tune = (key - data.pitch_keycenter) * 100 + data.tune;
 
-			AudioSource source(waveIndex, amplitude, envelope, data.lovel, data.hivel, tune);
+			AudioSource source(amplitude, envelope, data.lovel, data.hivel, tune);
+
+			if (waveIndexOpt)
+			{
+				source.setWaveIndex(waveIndexOpt.value());
+			}
+			else
+			{
+				//http://www.asahi-net.or.jp/~hb9t-ktd/music/Japan/Research/DTM/freq_map.html
+				const auto frequency = static_cast<float>(440.0 * pow(2.0, (key - 69) / 12.0));
+				const auto oscType = oscTypes.at(data.sample);
+				source.setOscillator(oscType, frequency);
+			}
+
 			source.setSwitch(data.sw_lokey, data.sw_hikey, data.sw_last, data.sw_default);
 
 			if (data.trigger == Trigger::Attack)
