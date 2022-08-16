@@ -77,6 +77,15 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 		audioKey.init(static_cast<int8>(i - 127));
 	}
 
+	HashTable<String, OscillatorType> oscTypes;
+	oscTypes[U"*sine"] = OscillatorType::Sine;
+	oscTypes[U"*tri"] = OscillatorType::Tri;
+	oscTypes[U"*triangle"] = OscillatorType::Tri;
+	oscTypes[U"*saw"] = OscillatorType::Saw;
+	oscTypes[U"*square"] = OscillatorType::Square;
+	oscTypes[U"*noise"] = OscillatorType::Noise;
+	oscTypes[U"*silence"] = OscillatorType::Silence;
+
 	Window::SetTitle(U"音源読み込み中：0 %");
 	for (const auto& [i, data] : Indexed(sfzData.data))
 	{
@@ -120,7 +129,8 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 			{
 				//http://www.asahi-net.or.jp/~hb9t-ktd/music/Japan/Research/DTM/freq_map.html
 				const auto frequency = static_cast<float>(440.0 * pow(2.0, (key - 69) / 12.0));
-				source.setOscillator(data.sample, frequency);
+				const auto oscType = oscTypes.at(data.sample);
+				source.setOscillator(oscType, frequency);
 			}
 
 			source.setSwitch(data.sw_lokey, data.sw_hikey, data.sw_last, data.sw_default);

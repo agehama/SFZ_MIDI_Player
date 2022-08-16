@@ -71,6 +71,16 @@ private:
 
 class AudioLoaderBase;
 
+enum class OscillatorType
+{
+	Sine,
+	Tri,
+	Saw,
+	Square,
+	Noise,
+	Silence,
+};
+
 // 1つのソース音源に対応
 struct AudioSource
 {
@@ -89,11 +99,7 @@ public:
 		m_index = index;
 	}
 
-	void setOscillator(StringView oscillatorName, float frequency)
-	{
-		m_oscillatorName = oscillatorName;
-		m_frequency = frequency;
-	}
+	void setOscillator(OscillatorType oscillatorType, float frequency);
 
 	void setSwitch(int8 swLokey, int8 swHikey, int8 swLast, int8 swDefault)
 	{
@@ -124,11 +130,11 @@ public:
 
 	void unuse();
 
-	bool isOscillator() const { return !m_oscillatorName.empty(); }
+	bool isOscillator() const { return m_oscillatorType.has_value(); }
 
 private:
 
-	String m_oscillatorName;
+	Optional<OscillatorType> m_oscillatorType;
 	float m_frequency;
 	size_t m_index;
 

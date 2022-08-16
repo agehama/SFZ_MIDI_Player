@@ -44,6 +44,12 @@ double Envelope::level(double noteOnTime, double noteOffTime, double time) const
 	return m_sustainLevel;
 }
 
+void AudioSource::setOscillator(OscillatorType oscillatorType, float frequency)
+{
+	m_oscillatorType = oscillatorType;
+	m_frequency = frequency;
+}
+
 bool AudioSource::isValidSwLast(int64 pressTimePos, const Array<KeyDownEvent>& history) const
 {
 	// 未設定の場合
@@ -90,8 +96,7 @@ size_t AudioSource::lengthSample() const
 {
 	if (isOscillator())
 	{
-		//return std::numeric_limits<size_t>::max();
-		return Wave::DefaultSampleRate * 100000;
+		return std::numeric_limits<uint32>::max();
 	}
 
 	const auto& sourceWave = getReader();
@@ -103,18 +108,78 @@ size_t AudioSource::lengthSample() const
 	return sampleCount;
 }
 
+double TriangleWave(double t, int n)
+{
+	double f = 0;
+	for (int i = 1; i < n; ++i)
+	{
+		const double a = i * 2 - 1;
+		const double coeff = pow(-1.0, i + 1) / (a * a);
+		f += coeff * sin(a * t);
+	}
+
+	return 8.0 * f/ 1_pi;
+}
+
+double SawtoothWave(double t, int n)
+{
+	double f = 0;
+	for (int i = 1; i < n; ++i)
+	{
+		const double coeff = 2.0 * pow(-1.0, i + 1) / i;
+		f += sin(i * t) / i;
+	}
+
+	return 2.0 * f / 1_pi;
+}
+
+double SquareWave(double t, int n)
+{
+	double f = 0;
+	for (int i = 1; i < n; ++i)
+	{
+		const double a = i * 2 - 1;
+		f += sin(a * t) / a;
+	}
+
+	return 4.0 * f / 1_pi;
+}
+
 WaveSample AudioSource::getSample(int64 index) const
 {
 	if (isOscillator())
 	{
-		if (m_oscillatorName == U"*sine")
+		const double t = 1.0 * index / Wave::DefaultSampleRate;
+		const double x = t * m_frequency * 2_pi;
+
+		switch (m_oscillatorType.value())
 		{
-			const double t = 1.0 * index / Wave::DefaultSampleRate;
-			const float osc = static_cast<float>(sin(t * m_frequency * 2_pi) * m_amplitude);
+		case OscillatorType::Sine:
+		{
+			const float osc = static_cast<float>(sin(x) * m_amplitude);
 			return WaveSample(osc, osc);
 		}
-		else
+		case OscillatorType::Tri:
 		{
+			const float osc = static_cast<float>(TriangleWave(x, 20) * m_amplitude);
+			return WaveSample(osc, osc);
+		}
+		case OscillatorType::Saw:
+		{
+			const float osc = static_cast<float>(SawtoothWave(x, 20) * m_amplitude);
+			return WaveSample(osc, osc);
+		}
+		case OscillatorType::Square:
+		{
+			const float osc = static_cast<float>(SquareWave(x, 20) * m_amplitude);
+			return WaveSample(osc, osc);
+		}
+		case OscillatorType::Noise:
+		{
+			const float osc = Random(-1.f, 1.f) * m_amplitude;
+			return WaveSample(osc, osc);
+		}
+		default:
 			return WaveSample(0, 0);
 		}
 	}
