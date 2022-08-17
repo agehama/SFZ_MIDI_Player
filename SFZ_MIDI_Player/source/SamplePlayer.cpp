@@ -15,6 +15,35 @@ namespace
 
 	const std::set<int> whiteIndices = { 0,2,4,5,7,9,11 };
 	const std::set<int> blackIndices = { 1,3,6,8,10 };
+
+	// 戻り値：[beginIndex, endIndex)
+	Optional<std::pair<uint32, uint32>> GetRangeEventIndex(const Array<KeyDownEvent>& keyDownEvents, int64 rangeBegin, int64 rangeEnd)
+	{
+		// 同時刻も有効範囲に含めたいので-1のupper_boundを取る
+		KeyDownEvent e0(0, rangeBegin - 1, 0);
+		auto beginIt = std::upper_bound(keyDownEvents.begin(), keyDownEvents.end(), e0,
+			[](const KeyDownEvent& a, const KeyDownEvent& b) { return a.pressTimePos < b.pressTimePos; });
+
+		if (beginIt == keyDownEvents.end())
+		{
+			return none;
+		}
+
+		// todo: ノートオフ以降のoff_byは無視しているが、これで正しいのか？
+		KeyDownEvent e1(0, rangeEnd, 0);
+		auto nextEndIt = std::upper_bound(keyDownEvents.begin(), keyDownEvents.end(), e1,
+			[](const KeyDownEvent& a, const KeyDownEvent& b) { return a.pressTimePos < b.pressTimePos; });
+
+		if (nextEndIt == keyDownEvents.begin())
+		{
+			return none;
+		}
+
+		const auto index0 = static_cast<uint32>(std::distance(keyDownEvents.begin(), beginIt));
+		const auto index1 = static_cast<uint32>(std::distance(keyDownEvents.begin(), nextEndIt));
+
+		return std::make_pair(index0, index1);
+	}
 }
 
 namespace
@@ -127,13 +156,15 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 			}
 			else
 			{
-				//http://www.asahi-net.or.jp/~hb9t-ktd/music/Japan/Research/DTM/freq_map.html
 				const auto frequency = static_cast<float>(440.0 * pow(2.0, (key - 69) / 12.0));
 				const auto oscType = oscTypes.at(data.sample);
 				source.setOscillator(oscType, frequency);
 			}
 
 			source.setSwitch(data.sw_lokey, data.sw_hikey, data.sw_last, data.sw_default);
+
+			const auto offTime = data.off_mode == OffMode::Fast ? 0.006f : data.ampeg_release;
+			source.setGroup(data.group, data.off_by, offTime);
 
 			if (data.trigger == Trigger::Attack)
 			{
@@ -474,7 +505,7 @@ Array<std::pair<uint8, NoteEvent>> SamplePlayer::addEvents(const MidiData& midiD
 			const double beginSec = midiData.ticksToSeconds(beginTick);
 			const int64 pressTimePos = static_cast<int64>(Math::Round(beginSec * Wave::DefaultSampleRate));
 
-			keyDownEvents.emplace_back(note.key, pressTimePos);
+			keyDownEvents.emplace_back(note.key, pressTimePos, note.velocity);
 		}
 	}
 	keyDownEvents.sort_by([](const KeyDownEvent& a, const KeyDownEvent& b) { return a.pressTimePos < b.pressTimePos; });
@@ -511,6 +542,62 @@ Array<std::pair<uint8, NoteEvent>> SamplePlayer::addEvents(const MidiData& midiD
 	sortEvent();
 
 	deleteDuplicate();
+
+	// off_byによるdisableTimeが決まるのは、sw_*などを考慮して各イベントに対応するAudioSourceが決まった後
+	for (uint8 index = 127; index < 255; ++index)
+	{
+		const auto key = index - 127;
+		if (m_audioKeys[index].hasAttackKey())
+		{
+			//m_audioKeys[index].sortEvent();
+			auto& events = m_audioKeys[index].noteEvents();
+
+			for (auto& noteEvent : events)
+			{
+				if (noteEvent.attackIndex == -1)
+				{
+					continue;
+				}
+
+				const auto& audioKey = m_audioKeys[key + 127];
+				const auto& attackKey = audioKey.getAttackKey(noteEvent.attackIndex);
+				const auto off_by = attackKey.offBy();
+				if (off_by == 0)
+				{
+					continue;
+				}
+
+				if (auto rangeOpt = GetRangeEventIndex(keyDownEvents, noteEvent.pressTimePos, noteEvent.releaseTimePos))
+				{
+					const auto [beginIndex, endIndex] = rangeOpt.value();
+
+					for (uint32 i = beginIndex; i < endIndex; ++i)
+					{
+						const auto& followKeyDown = keyDownEvents[i];
+
+						// 自分自身だったら無視
+						if (key == followKeyDown.key && noteEvent.pressTimePos == followKeyDown.pressTimePos)
+						{
+							continue;
+						}
+
+						const auto& followAudioKey = m_audioKeys[followKeyDown.key + 127];
+						const auto followAttackIndex = followAudioKey.getAttackIndex(followKeyDown.velocity, followKeyDown.pressTimePos, keyDownEvents);
+						if (followAttackIndex != -1)
+						{
+							const auto& followAttackKey = followAudioKey.getAttackKey(followAttackIndex);
+
+							if (off_by == followAttackKey.group())
+							{
+								noteEvent.disableTimePos = followKeyDown.pressTimePos;
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 
 	return results;
 }
