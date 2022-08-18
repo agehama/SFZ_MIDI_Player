@@ -163,7 +163,15 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 
 			source.setSwitch(data.sw_lokey, data.sw_hikey, data.sw_last, data.sw_default);
 
-			const auto offTime = data.off_mode == OffMode::Fast ? 0.006f : data.ampeg_release;
+			float offTime = 0.006f;
+			if (data.off_mode == OffMode::Time)
+			{
+				offTime = data.off_time;
+			}
+			else if (data.off_mode == OffMode::Normal)
+			{
+				offTime = data.ampeg_release;
+			}
 			source.setGroup(data.group, data.off_by, offTime);
 
 			if (data.trigger == Trigger::Attack)

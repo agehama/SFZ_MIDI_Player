@@ -54,6 +54,10 @@ namespace
 		{
 			return OffMode::Normal;
 		}
+		else if (trigger == U"time")
+		{
+			return OffMode::Time;
+		}
 
 		assert(false);
 		return OffMode::Fast;
@@ -276,6 +280,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 	const String keyGroup = U"group=";
 	const String keyOffBy = U"off_by=";
 	const String keyOffMode = U"off_mode=";
+	const String keyOffTime = U"off_time=";
 
 	const auto parentDirectory = FileSystem::ParentPath(sfzPath);
 	String defaultPath = parentDirectory;
@@ -350,6 +355,10 @@ SfzData LoadSfz(FilePathView sfzPath)
 		else if (token.starts_with(keyOffMode))
 		{
 			(region ? region.value() : group).off_mode = ParseOffMode(token.substr(keyOffMode.length()));
+		}
+		else if (token.starts_with(keyOffTime))
+		{
+			(region ? region.value() : group).off_time = ParseFloat<float>(token.substr(keyOffTime.length()));
 		}
 		else if (token.starts_with(keySwLoKey))
 		{
