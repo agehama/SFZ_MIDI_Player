@@ -118,7 +118,7 @@ double TriangleWave(double t, int n)
 		f += coeff * sin(a * t);
 	}
 
-	return 8.0 * f/ 1_pi;
+	return 8.0 * f / 1_pi;
 }
 
 double SawtoothWave(double t, int n)
@@ -127,7 +127,7 @@ double SawtoothWave(double t, int n)
 	for (int i = 1; i < n; ++i)
 	{
 		const double coeff = 2.0 * pow(-1.0, i + 1) / i;
-		f += sin(i * t) / i;
+		f += coeff * sin(i * t) / i;
 	}
 
 	return 2.0 * f / 1_pi;
@@ -285,6 +285,11 @@ int64 AudioKey::getAttackIndex(uint8 velocity, int64 pressTimePos, const Array<K
 	return -1;
 }
 
+const AudioSource& AudioKey::getAttackKey(int64 attackIndex) const
+{
+	return attackKeys[attackIndex];
+}
+
 int64 AudioKey::getReleaseIndex(uint8 velocity) const
 {
 	for (auto [i, key] : Indexed(releaseKeys))
@@ -434,7 +439,21 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 		//const int64 readIndex = startIndex + j;
 		const int64 writeIndex = writeIndexHead + i;
 		const double time = 1.0 * (startPos + writeIndex) / attackKey.sampleRate();
-		const double currentLevel = envelope.level(targetEvent, time) * currentVolume;
+
+		double disableCoeff = 1.0;
+		if (targetEvent.disableTimePos)
+		{
+			const auto currentTimePos = startPos + writeIndex;
+			const auto disableTimePos = targetEvent.disableTimePos.value();
+			if (disableTimePos < currentTimePos)
+			{
+				const auto disableTime = 1.0 * (currentTimePos - disableTimePos) / attackKey.sampleRate();
+
+				disableCoeff = 1.0 - Saturate(disableTime / attackKey.disableFadeSeconds());
+			}
+		}
+
+		const double currentLevel = envelope.level(targetEvent, time) * currentVolume * disableCoeff;
 
 		if (1.0 * targetEvent.pressTimePos / attackKey.sampleRate() + envelope.noteTime(targetEvent) < time)
 		{

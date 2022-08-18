@@ -1,15 +1,18 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
+#include "SFZLoader.hpp"
 
 struct KeyDownEvent
 {
 	int8 key;
 	int64 pressTimePos;
+	uint8 velocity;
 
 	KeyDownEvent() = delete;
-	KeyDownEvent(int8 key, int64 pressTimePos) :
+	KeyDownEvent(int8 key, int64 pressTimePos, uint8 velocity) :
 		key(key),
-		pressTimePos(pressTimePos)
+		pressTimePos(pressTimePos),
+		velocity(velocity)
 	{}
 };
 
@@ -20,6 +23,8 @@ struct NoteEvent
 	int64 pressTimePos;
 	int64 releaseTimePos;
 	uint8 velocity;
+
+	Optional<int64> disableTimePos;
 
 	NoteEvent() = delete;
 	NoteEvent(int64 attackIndex, int64 releaseIndex, int64 pressTimePos, int64 releaseTimePos, uint8 velocity) :
@@ -109,6 +114,13 @@ public:
 		m_swDefault = swDefault;
 	}
 
+	void setGroup(uint32 group, uint32 offBy, float disableFadeSeconds)
+	{
+		m_group = group;
+		m_offBy = offBy;
+		m_disableFadeSeconds = disableFadeSeconds;
+	}
+
 	bool isValidVelocity(uint8 velocity) const
 	{
 		return m_lovel <= velocity && velocity <= m_hivel;
@@ -132,6 +144,10 @@ public:
 
 	bool isOscillator() const { return m_oscillatorType.has_value(); }
 
+	uint32 group() const { return m_group; }
+	uint32 offBy() const { return m_offBy; }
+	float disableFadeSeconds() const { return m_disableFadeSeconds; }
+
 private:
 
 	Optional<OscillatorType> m_oscillatorType;
@@ -154,6 +170,10 @@ private:
 	int8 m_swHikey = 0;
 	int8 m_swLast = 0;
 	int8 m_swDefault = 0;
+
+	uint32 m_group = 0;
+	uint32 m_offBy = 0;
+	float m_disableFadeSeconds = 0;
 };
 
 // 1つのキーから鳴らされるAudioSourceをまとめたもの
@@ -175,6 +195,8 @@ public:
 
 	int64 getAttackIndex(uint8 velocity, int64 pressTimePos, const Array<KeyDownEvent>& history) const;
 
+	const AudioSource& getAttackKey(int64 attackIndex) const;
+
 	int64 getReleaseIndex(uint8 velocity) const;
 
 	void debugPrint() const;
@@ -184,6 +206,8 @@ public:
 	void deleteDuplicate();
 
 	void getSamples(float* left, float* right, int64 startPos, int64 sampleCount);
+
+	Array<NoteEvent>& noteEvents() { return m_noteEvents; }
 
 private:
 

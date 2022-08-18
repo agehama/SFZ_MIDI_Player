@@ -44,6 +44,25 @@ namespace
 		}
 	}
 
+	OffMode ParseOffMode(StringView trigger)
+	{
+		if (trigger == U"fast")
+		{
+			return OffMode::Fast;
+		}
+		else if (trigger == U"normal")
+		{
+			return OffMode::Normal;
+		}
+		else if (trigger == U"time")
+		{
+			return OffMode::Time;
+		}
+
+		assert(false);
+		return OffMode::Fast;
+	}
+
 	Optional<uint8> ParseMidiKey(StringView str)
 	{
 		std::map<String, uint8> keys;
@@ -235,7 +254,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 
 	TextReader sfzReader(sfzPath);
 
-	const String keyGroup = U"<group>";
+	const String keyGroupHeader = U"<group>";
 	const String keyRegion = U"<region>";
 	const String keySample = U"sample=";
 	const String keyLovel = U"lovel=";
@@ -258,6 +277,10 @@ SfzData LoadSfz(FilePathView sfzPath)
 	const String keySwHiKey = U"sw_hikey=";
 	const String keySwDefault = U"sw_default=";
 	const String keySwLast = U"sw_last=";
+	const String keyGroup = U"group=";
+	const String keyOffBy = U"off_by=";
+	const String keyOffMode = U"off_mode=";
+	const String keyOffTime = U"off_time=";
 
 	const auto parentDirectory = FileSystem::ParentPath(sfzPath);
 	String defaultPath = parentDirectory;
@@ -320,6 +343,22 @@ SfzData LoadSfz(FilePathView sfzPath)
 					region = none;
 				}
 			}
+		}
+		else if (token.starts_with(keyGroup))
+		{
+			(region ? region.value() : group).group = ParseInt<uint32>(token.substr(keyGroup.length()));
+		}
+		else if (token.starts_with(keyOffBy))
+		{
+			(region ? region.value() : group).off_by = ParseInt<uint32>(token.substr(keyOffBy.length()));
+		}
+		else if (token.starts_with(keyOffMode))
+		{
+			(region ? region.value() : group).off_mode = ParseOffMode(token.substr(keyOffMode.length()));
+		}
+		else if (token.starts_with(keyOffTime))
+		{
+			(region ? region.value() : group).off_time = ParseFloat<float>(token.substr(keyOffTime.length()));
 		}
 		else if (token.starts_with(keySwLoKey))
 		{
@@ -433,7 +472,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 		{
 			(region ? region.value() : group).rt_decay = ParseFloat<float>(token.substr(keyRtDecay.length()));
 		}
-		else if (token.starts_with(keyGroup))
+		else if (token.starts_with(keyGroupHeader))
 		{
 			nextPos = pos + keyRegion.length() - 1;
 			if (region)
