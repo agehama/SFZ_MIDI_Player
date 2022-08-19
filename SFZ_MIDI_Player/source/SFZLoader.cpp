@@ -63,6 +63,30 @@ namespace
 		return OffMode::Fast;
 	}
 
+	std::pair<PolyphonyType, uint8> ParsePolyphony(StringView polyphony)
+	{
+		if (auto opt = ParseIntOpt<uint8>(polyphony))
+		{
+			return std::make_pair(PolyphonyType::Count, opt.value());
+		}
+
+		if (polyphony == U"legato_high")
+		{
+			return std::make_pair(PolyphonyType::LegatoHigh, 1);
+		}
+		else if (polyphony == U"legato_last")
+		{
+			return std::make_pair(PolyphonyType::LegatoLast, 1);
+		}
+		else if (polyphony == U"legato_low")
+		{
+			return std::make_pair(PolyphonyType::LegatoLow, 1);
+		}
+
+		assert(false);
+		return std::make_pair(PolyphonyType::None, 0);
+	}
+
 	Optional<uint8> ParseMidiKey(StringView str)
 	{
 		std::map<String, uint8> keys;
@@ -281,6 +305,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 	const String keyOffBy = U"off_by=";
 	const String keyOffMode = U"off_mode=";
 	const String keyOffTime = U"off_time=";
+	const String keyPolyphony = U"polyphony=";
 
 	const auto parentDirectory = FileSystem::ParentPath(sfzPath);
 	String defaultPath = parentDirectory;
@@ -347,6 +372,12 @@ SfzData LoadSfz(FilePathView sfzPath)
 		else if (token.starts_with(keyGroup))
 		{
 			(region ? region.value() : group).group = ParseInt<uint32>(token.substr(keyGroup.length()));
+		}
+		else if (token.starts_with(keyPolyphony))
+		{
+			const auto [polyType, polyCount] = ParsePolyphony(token.substr(keyPolyphony.length()));
+			(region ? region.value() : group).polyphony = polyType;
+			(region ? region.value() : group).polyphony_count = polyCount;
 		}
 		else if (token.starts_with(keyOffBy))
 		{

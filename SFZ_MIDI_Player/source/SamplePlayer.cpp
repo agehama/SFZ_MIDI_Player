@@ -162,7 +162,6 @@ void SamplePlayer::loadData(const SfzData& sfzData)
 			}
 
 			source.setSwitch(data.sw_lokey, data.sw_hikey, data.sw_last, data.sw_default);
-
 			float offTime = 0.006f;
 			if (data.off_mode == OffMode::Time)
 			{
