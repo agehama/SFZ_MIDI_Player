@@ -254,7 +254,7 @@ void FlacLoader::init()
 	m_flacDecoder->m_initialized = true;
 }
 
-void FlacLoader::use()
+void FlacLoader::use(size_t beginSampleIndex, size_t sampleCount)
 {
 	m_unuseCount = 0;
 

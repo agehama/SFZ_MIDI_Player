@@ -13,7 +13,7 @@ public:
 
 	virtual size_t lengthSample() const = 0;
 
-	virtual void use() = 0;
+	virtual void use(size_t beginSampleIndex, size_t sampleCount) = 0;
 
 	virtual void unuse() = 0;
 

@@ -57,15 +57,15 @@ std::pair<void*, uint32> MemoryPool::allocateBlock(size_t ownerId)
 	return std::make_pair(ptr, freeBlockIndex);
 }
 
-void MemoryPool::deallocateBlock(uint32 blockIndex)
+void MemoryPool::deallocateBlock(uint32 poolId)
 {
 	{
-		const auto y = static_cast<int32>(blockIndex / m_debugImage.width());
-		const auto x = static_cast<int32>(blockIndex % m_debugImage.width());
+		const auto y = static_cast<int32>(poolId / m_debugImage.width());
+		const auto x = static_cast<int32>(poolId % m_debugImage.width());
 		m_debugImage[y][x] = Palette::Black;
 	}
 
-	m_freeBlocks.push_front(blockIndex);
+	m_freeBlocks.push_front(poolId);
 }
 
 void MemoryPool::debugUpdate()

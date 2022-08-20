@@ -42,13 +42,13 @@ void AudioLoadManager::update()
 	}
 
 	// 長時間起動したときのキャッシュ効率の低下を防ぐために空きブロックを少しずつソートする
-	{
-		auto& memoryPool = MemoryPool::i();
-		const size_t unitSortCount = 8192;//400[us]くらい
-		const size_t blockCount = memoryPool.freeBlockCount();
-		auto sortBegin = Random(0ull, blockCount - unitSortCount);
-		memoryPool.sortFreeBlock(sortBegin, sortBegin + unitSortCount);
-	}
+	//{
+	//	auto& memoryPool = MemoryPool::i();
+	//	const size_t unitSortCount = 8192;//400[us]くらい
+	//	const size_t blockCount = memoryPool.freeBlockCount();
+	//	auto sortBegin = Random(0ull, blockCount - unitSortCount);
+	//	memoryPool.sortFreeBlock(sortBegin, sortBegin + unitSortCount);
+	//}
 }
 
 const AudioLoaderBase& AudioLoadManager::reader(size_t index) const

@@ -134,11 +134,13 @@ public:
 
 	size_t lengthSample() const;
 
+	double getSpeed() const;
+
 	WaveSample getSample(int64 index) const;
 
 	const Envelope& envelope() const { return m_envelope; }
 
-	void use();
+	void use(size_t beginSampleIndex, size_t sampleCount);
 
 	void unuse();
 

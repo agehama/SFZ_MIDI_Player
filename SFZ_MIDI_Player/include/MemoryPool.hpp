@@ -15,7 +15,7 @@ public:
 
 	std::pair<void*, uint32> allocateBlock(size_t oenerId);
 
-	void deallocateBlock(uint32 blockIndex);
+	void deallocateBlock(uint32 poolId);
 
 	size_t blockCount() const;
 

@@ -18,7 +18,7 @@ public:
 
 	size_t lengthSample() const override;
 
-	void use() override;
+	void use(size_t beginSampleIndex, size_t sampleCount) override;
 
 	void unuse() override;
 

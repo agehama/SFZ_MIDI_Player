@@ -43,21 +43,6 @@ void Main()
 	DragDrop::AcceptFilePaths(true);
 	Window::SetTitle(U"MIDIファイルをドラッグドロップして再生");
 
-	auto audioStreamUpdate = []()
-	{
-		auto& audioManager = AudioLoadManager::i();
-		while (!audioManager.isFinish())
-		{
-			if (audioManager.isRunning())
-			{
-				audioManager.update();
-			}
-			std::this_thread::sleep_for(std::chrono::milliseconds(10));
-		}
-	};
-
-	std::thread audioStreamThread(audioStreamUpdate);
-
 	Graphics::SetVSyncEnabled(false);
 	bool debugDraw = false;
 
@@ -74,6 +59,9 @@ void Main()
 
 			if (U"mid" == FileSystem::Extension(filepath.path))
 			{
+				pianoRoll.pause();
+				audio.pause();
+
 				midiData = LoadMidi(filepath.path);
 				player.addEvents(midiData.value());
 				pianoRoll.playRestart();
@@ -85,9 +73,9 @@ void Main()
 				pianoRoll.pause();
 				audio.pause();
 
-				AudioLoadManager::i().pause();
+				//AudioLoadManager::i().pause();
 				player.loadData(LoadSfz(filepath.path));
-				AudioLoadManager::i().resume();
+				//AudioLoadManager::i().resume();
 
 				pianoRoll.resume();
 				audio.play();
@@ -135,9 +123,6 @@ void Main()
 			memoryPool.debugDraw();
 		}
 	}
-
-	AudioLoadManager::i().finish();
-	audioStreamThread.join();
 }
 
 #else
