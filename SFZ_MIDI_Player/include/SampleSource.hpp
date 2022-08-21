@@ -66,6 +66,8 @@ public:
 		return level(1.0 * noteEvent.pressTimePos / Wave::DefaultSampleRate, 1.0 * noteEvent.releaseTimePos / Wave::DefaultSampleRate, time);
 	}
 
+	double releaseTime() const { return m_releaseTime; }
+
 private:
 
 	double m_attackTime = 0;

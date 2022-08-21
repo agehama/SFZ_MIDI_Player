@@ -380,9 +380,35 @@ void AudioKey::getSamples(float* left, float* right, int64 startPos, int64 sampl
 		}
 	}
 
+	if (!releaseKeys.empty())
 	{
-		// todo: 必要なインデックスだけ見るようにする
-		for (int64 noteIndex = 0; noteIndex < static_cast<int64>(m_noteEvents.size()); ++noteIndex)
+		auto maxReleaseTimeIt = std::max_element(releaseKeys.begin(), releaseKeys.end(),
+			[](const AudioSource& a, const AudioSource& b) { return a.envelope().releaseTime() < b.envelope().releaseTime(); });
+
+		const auto maxReleaseCount = static_cast<int64>(maxReleaseTimeIt->envelope().releaseTime() * Wave::DefaultSampleRate);
+
+		NoteEvent note0(0, 0, 0, 0, 0);
+		note0.pressTimePos = startPos - maxReleaseCount;
+		auto itNextStart = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), note0, [](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
+		const int64 nextStartIndex = std::distance(m_noteEvents.begin(), itNextStart);
+		int64 startIndex = nextStartIndex - 1;
+
+		if (m_noteEvents.empty())
+		{
+			return;
+		}
+
+		NoteEvent note1(0, 0, 0, 0, 0);
+		note1.pressTimePos = startPos + sampleCount;
+		auto itNextEnd = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), note1, [](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
+		const int64 nextEndIndex = std::distance(m_noteEvents.begin(), itNextEnd);
+
+		if (startIndex < 0)
+		{
+			startIndex = 0;
+		}
+
+		for (int64 noteIndex = startIndex; noteIndex < nextEndIndex; ++noteIndex)
 		{
 			renderRelease(left, right, startPos, sampleCount, noteIndex);
 		}
