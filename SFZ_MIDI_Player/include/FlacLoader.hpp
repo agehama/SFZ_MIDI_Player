@@ -24,6 +24,10 @@ public:
 
 	void update() override;
 
+	void markUnused() override;
+
+	void freeUnusedBlocks() override;
+
 	WaveSample getSample(int64 index) const override;
 
 private:

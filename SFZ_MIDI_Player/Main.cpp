@@ -23,9 +23,10 @@ void Main()
 	Window::Resize(1280, 1280);
 	const auto [keyboardArea, pianorollArea] = SplitLeftRight(Scene::Rect(), 0.1);
 #endif
-
+	Console << U"a";
 	auto& memoryPool = MemoryPool::i();
-	memoryPool.setCapacity(128ull << 20);
+	//memoryPool.setCapacity(128ull << 20);
+	memoryPool.setCapacity(4ull << 20);
 
 	const auto data = LoadSfz(U"sound/Grand Piano, Kawai.sfz");
 

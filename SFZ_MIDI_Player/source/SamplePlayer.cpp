@@ -617,8 +617,21 @@ void SamplerAudioStream::getAudio(float* left, float* right, const size_t sample
 		return;
 	}
 
+	AudioLoadManager::i().markBlocks();
+
+	Stopwatch watch(StartImmediately::Yes);
+
 	m_samplePlayer.get().getSamples(left, right, m_pos, samplesToWrite);
 	m_pos += samplesToWrite;
+
+	const double time = watch.usF();
+
+	AudioLoadManager::i().freeUnusedBlocks();
+
+	//if (1000 < time)
+	//{
+	//	Console << time2;
+	//}
 }
 
 void AudioRenderer::getAudio(float* left, float* right, int64 startPos, int64 sampleCount)

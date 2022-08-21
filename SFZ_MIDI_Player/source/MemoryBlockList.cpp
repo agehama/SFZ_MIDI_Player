@@ -20,7 +20,7 @@ void MemoryBlockList::allocate(size_t beginDataPos, size_t sizeOfBytes)
 		if (!m_blocks.contains(i))
 		{
 			auto [buffer, poolId] = memoryPool.allocateBlock(m_id);
-			m_blocks[i] = BlockInfo{ static_cast<uint8*>(buffer), poolId };
+			m_blocks[i] = BlockInfo{ static_cast<uint8*>(buffer), poolId, true };
 		}
 	}
 }
@@ -106,7 +106,7 @@ void MemoryBlockList::allocateSingleBlock(uint32 blockIndex)
 	auto& memoryPool = MemoryPool::i();
 
 	auto [buffer, poolId] = memoryPool.allocateBlock(m_id);
-	m_blocks[blockIndex] = BlockInfo{ static_cast<uint8*>(buffer), poolId };
+	m_blocks[blockIndex] = BlockInfo{ static_cast<uint8*>(buffer), poolId, true };
 }
 
 uint8* MemoryBlockList::getBlock(uint32 blockIndex) const
@@ -115,4 +115,35 @@ uint8* MemoryBlockList::getBlock(uint32 blockIndex) const
 
 	const auto& block = m_blocks.at(blockIndex);
 	return block.buffer;
+}
+
+void MemoryBlockList::markUnused()
+{
+	for (auto& block : m_blocks)
+	{
+		block.second.use = false;
+	}
+}
+
+void MemoryBlockList::use(uint32 blockIndex)
+{
+	m_blocks[blockIndex].use = true;
+}
+
+void MemoryBlockList::freeUnusedBlocks()
+{
+	auto& memoryPool = MemoryPool::i();
+
+	for (auto it = m_blocks.begin(); it != m_blocks.end();)
+	{
+		if (it->second.use)
+		{
+			++it;
+		}
+		else
+		{
+			memoryPool.deallocateBlock(it->second.poolId);
+			it = m_blocks.erase(it);
+		}
+	}
 }

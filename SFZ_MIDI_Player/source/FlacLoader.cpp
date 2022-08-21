@@ -303,6 +303,16 @@ void FlacLoader::update()
 	m_mutex.unlock();
 }
 
+void FlacLoader::markUnused()
+{
+
+}
+
+void FlacLoader::freeUnusedBlocks()
+{
+
+}
+
 WaveSample FlacLoader::getSample(int64 index) const
 {
 	//const bool isValidIndex = 0 <= index && index < m_flacDecoder->m_lengthSample;

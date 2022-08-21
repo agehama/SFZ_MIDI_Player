@@ -19,6 +19,10 @@ public:
 
 	virtual void update() = 0;
 
+	virtual void markUnused() = 0;
+
+	virtual void freeUnusedBlocks() = 0;
+
 	virtual WaveSample getSample(int64 index) const = 0;
 };
 

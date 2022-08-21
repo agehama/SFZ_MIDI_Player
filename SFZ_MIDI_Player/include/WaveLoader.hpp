@@ -23,6 +23,10 @@ public:
 
 	void update() override;
 
+	void markUnused() override;
+
+	void freeUnusedBlocks() override;
+
 	WaveSample getSample(int64 index) const override;
 
 private:
@@ -54,6 +58,5 @@ private:
 	float m_normalize = 0;
 
 	uint32 m_unuseCount = 0;
-	bool m_use = false;
 	MemoryBlockList m_readBlocks;
 };

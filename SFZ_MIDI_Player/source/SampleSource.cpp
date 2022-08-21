@@ -352,36 +352,40 @@ void AudioKey::deleteDuplicate()
 
 void AudioKey::getSamples(float* left, float* right, int64 startPos, int64 sampleCount)
 {
-	NoteEvent note0(0, 0, 0, 0, 0);
-	note0.pressTimePos = startPos;
-	auto itNextStart = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), note0, [](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
-	const int64 nextStartIndex = std::distance(m_noteEvents.begin(), itNextStart);
-	int64 startIndex = nextStartIndex - 1;
-
-	if (m_noteEvents.empty())
 	{
-		return;
+		NoteEvent note0(0, 0, 0, 0, 0);
+		note0.pressTimePos = startPos;
+		auto itNextStart = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), note0, [](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
+		const int64 nextStartIndex = std::distance(m_noteEvents.begin(), itNextStart);
+		int64 startIndex = nextStartIndex - 1;
+
+		if (m_noteEvents.empty())
+		{
+			return;
+		}
+
+		NoteEvent note1(0, 0, 0, 0, 0);
+		note1.pressTimePos = startPos + sampleCount;
+		auto itNextEnd = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), note1, [](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
+		const int64 nextEndIndex = std::distance(m_noteEvents.begin(), itNextEnd);
+
+		if (startIndex < 0)
+		{
+			startIndex = 0;
+		}
+
+		for (int64 noteIndex = startIndex; noteIndex < nextEndIndex; ++noteIndex)
+		{
+			render(left, right, startPos, sampleCount, noteIndex);
+		}
 	}
 
-	NoteEvent note1(0, 0, 0, 0, 0);
-	note1.pressTimePos = startPos + sampleCount;
-	auto itNextEnd = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), note1, [](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
-	const int64 nextEndIndex = std::distance(m_noteEvents.begin(), itNextEnd);
-
-	if (startIndex < 0)
 	{
-		startIndex = 0;
-	}
-
-	for (int64 noteIndex = startIndex; noteIndex < nextEndIndex; ++noteIndex)
-	{
-		render(left, right, startPos, sampleCount, noteIndex);
-	}
-
-	// todo: 必要なインデックスだけ見るようにする
-	for (int64 noteIndex = 0; noteIndex < static_cast<int64>(m_noteEvents.size()); ++noteIndex)
-	{
-		renderRelease(left, right, startPos, sampleCount, noteIndex);
+		// todo: 必要なインデックスだけ見るようにする
+		for (int64 noteIndex = 0; noteIndex < static_cast<int64>(m_noteEvents.size()); ++noteIndex)
+		{
+			renderRelease(left, right, startPos, sampleCount, noteIndex);
+		}
 	}
 }
 
@@ -413,6 +417,7 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 		<< U", sampleEmptyCount: " << sampleEmptyCount;*/
 
 	const double currentVolume = targetEvent.velocity / 127.0;
+	const int64 prevWriteCount = writeIndexHead - prevWriteIndexHead;
 
 	if (Max(0ll, -writeIndexHead) < sampleReadCount)
 	{
@@ -423,10 +428,28 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 			const auto samples = static_cast<size_t>((sampleCount + 10) * speed);
 			const auto sampleBegin = static_cast<size_t>(Max(0ll, -writeIndexHead) * speed);
 			attackKey.use(sampleBegin, samples);
+
+			const auto blendIndex = startPos - targetEvent.pressTimePos;
+			if (1 <= noteIndex && blendIndex < BlendSampleCount)
+			{
+				const auto& prevEvent = m_noteEvents[noteIndex - 1];
+				auto& prevAttackKey = attackKeys[prevEvent.attackIndex];
+
+				if (startTime < 1.0 * prevEvent.pressTimePos / attackKey.sampleRate() + prevAttackKey.envelope().noteTime(prevEvent))
+				{
+					const auto [prevReadCount, prevEmptyCount] = readEmptyCount(startPos, sampleCount, noteIndex - 1);
+
+					{
+						const auto prevSpeed = prevAttackKey.getSpeed();
+						const auto prevSamples = static_cast<size_t>((BlendSampleCount + 10) * prevSpeed);
+						const auto prevSampleBegin = static_cast<size_t>(Max(0ll, prevWriteCount - writeIndexHead) * prevSpeed);
+						prevAttackKey.use(prevSampleBegin, prevSamples);
+					}
+				}
+			}
 		}
 	}
 
-	const int64 prevWriteCount = writeIndexHead - prevWriteIndexHead;
 	for (int64 i = Max(0ll, -writeIndexHead), j = 0; i < sampleReadCount && j < sampleCount; ++i, ++j)
 	{
 		//const int64 readIndex = startIndex + i;
@@ -466,13 +489,6 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 			if (time < 1.0 * prevEvent.pressTimePos / attackKey.sampleRate() + prevAttackKey.envelope().noteTime(prevEvent))
 			{
 				const auto [prevReadCount, prevEmptyCount] = readEmptyCount(startPos, sampleCount, noteIndex - 1);
-
-				{
-					const auto prevSpeed = prevAttackKey.getSpeed();
-					const auto prevSamples = static_cast<size_t>((BlendSampleCount + 10) * prevSpeed);
-					const auto prevSampleBegin = static_cast<size_t>(Max(0ll, prevWriteCount - writeIndexHead) * prevSpeed);
-					prevAttackKey.use(prevSampleBegin, prevSamples);
-				}
 
 				const double prevVolume = prevEvent.velocity / 127.0;
 				const double prevLevel = envelope.level(prevEvent, time) * prevVolume;

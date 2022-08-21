@@ -51,6 +51,22 @@ void AudioLoadManager::update()
 	//}
 }
 
+void AudioLoadManager::markBlocks()
+{
+	for (auto& reader : m_waveReaders)
+	{
+		reader->markUnused();
+	}
+}
+
+void AudioLoadManager::freeUnusedBlocks()
+{
+	for (auto& reader : m_waveReaders)
+	{
+		reader->freeUnusedBlocks();
+	}
+}
+
 const AudioLoaderBase& AudioLoadManager::reader(size_t index) const
 {
 	return *m_waveReaders[index];

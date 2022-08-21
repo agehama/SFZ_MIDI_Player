@@ -30,6 +30,12 @@ public:
 
 	uint8* getBlock(uint32 blockIndex) const;
 
+	void markUnused();
+
+	void freeUnusedBlocks();
+
+	void use(uint32 blockIndex);
+
 private:
 
 	struct BlockInfo
@@ -38,6 +44,7 @@ private:
 		//size_t dataOffset;
 		uint8* buffer;
 		uint32 poolId;
+		uint8 use;
 	};
 
 	//Array<BlockInfo> m_blocks;

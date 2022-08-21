@@ -16,6 +16,10 @@ public:
 
 	void update();
 
+	void markBlocks();
+
+	void freeUnusedBlocks();
+
 	const AudioLoaderBase& reader(size_t index) const;
 
 	AudioLoaderBase& reader(size_t index);

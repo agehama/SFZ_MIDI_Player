@@ -120,8 +120,6 @@ void WaveLoader::use(size_t beginSampleIndex, size_t sampleCount)
 		//}
 
 		readBlock(beginSampleIndex, sampleCount);
-
-		m_use = true;
 	}
 
 	//m_mutex.unlock();
@@ -135,21 +133,16 @@ void WaveLoader::unuse()
 
 void WaveLoader::update()
 {
-	++m_unuseCount;
-	if (m_use && 5 < m_unuseCount)
-	{
-		//unuse();
-	}
+}
 
-	if (m_use)
-	{
-		//readBlock();
-	}
-	//else
-	//{
-	//	m_readBlocks.deallocate();
-	//	m_loadSampleCount = 0;
-	//}
+void WaveLoader::markUnused()
+{
+	m_readBlocks.markUnused();
+}
+
+void WaveLoader::freeUnusedBlocks()
+{
+	m_readBlocks.freeUnusedBlocks();
 }
 
 WaveSample WaveLoader::getSample(int64 index) const
@@ -208,20 +201,14 @@ void WaveLoader::readBlock(size_t beginSample, size_t sampleCount)
 			const size_t allocateBegin = (readHead / MemoryPool::UnitBlockSizeOfBytes) * MemoryPool::UnitBlockSizeOfBytes;
 			const size_t allocateEnd = readHead + requiredReadBytes;
 
+			const auto [beginBlock, endBlock] = m_readBlocks.blockIndexRange(allocateBegin, allocateEnd - allocateBegin);
+			for (uint32 blockIndex = beginBlock; blockIndex <= endBlock; ++blockIndex)
 			{
-				// todo: 判定が雑
-				const auto [beginBlock, endBlock] = m_readBlocks.blockIndexRange(allocateBegin, allocateEnd - allocateBegin);
-				if (m_readBlocks.isAllocatedBlock(beginBlock) && m_readBlocks.isAllocatedBlock(endBlock))
+				if (m_readBlocks.isAllocatedBlock(blockIndex))
 				{
-					return;
+					m_readBlocks.use(blockIndex);
 				}
-			}
-
-			auto blockIndices = m_readBlocks.blockIndices(allocateBegin, allocateEnd - allocateBegin);
-
-			for (const auto& [blockIndex, allocated] : blockIndices)
-			{
-				if (!allocated)
+				else
 				{
 					const auto currentReadPos = static_cast<int64>(blockIndex * MemoryPool::UnitBlockSizeOfBytes);
 					m_readBlocks.allocateSingleBlock(blockIndex);
