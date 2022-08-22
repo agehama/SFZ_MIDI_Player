@@ -44,7 +44,7 @@ private:
 		//size_t dataOffset;
 		uint8* buffer;
 		uint32 poolId;
-		uint8 use;
+		uint8 unusedCount;
 	};
 
 	//Array<BlockInfo> m_blocks;
