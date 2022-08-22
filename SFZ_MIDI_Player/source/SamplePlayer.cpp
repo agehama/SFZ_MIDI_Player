@@ -628,7 +628,7 @@ void SamplerAudioStream::getAudio(float* left, float* right, const size_t sample
 
 	AudioLoadManager::i().freeUnusedBlocks();
 
-	if (4000 < time)
+	if (10000 < time)
 	{
 		Console << time;
 	}
