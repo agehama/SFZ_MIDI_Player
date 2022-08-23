@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <AudioLoadManager.hpp>
 #include <SampleSource.hpp>
+#include <SamplePlayer.hpp>
 
 double Envelope::level(double noteOnTime, double noteOffTime, double time) const
 {
@@ -43,6 +44,15 @@ double Envelope::level(double noteOnTime, double noteOffTime, double time) const
 
 	return m_sustainLevel;
 }
+
+AudioSource::AudioSource(float amplitude, const Envelope& envelope, uint8 lovel, uint8 hivel, int32 tune) :
+	m_amplitude(amplitude),
+	m_lovel(lovel),
+	m_hivel(hivel),
+	m_tune(tune),
+	m_speed(static_cast<float>(std::exp2(m_tune / 1200.0))),
+	m_envelope(envelope)
+{}
 
 void AudioSource::setOscillator(OscillatorType oscillatorType, float frequency)
 {
@@ -101,8 +111,7 @@ size_t AudioSource::lengthSample() const
 
 	const auto& sourceWave = getReader();
 
-	const double speed = std::exp2(m_tune / 1200.0);
-	const double scale = 1.0 / speed;
+	const float scale = 1.0f / m_speed;
 	const auto sampleCount = static_cast<size_t>(Math::Ceil(sourceWave.lengthSample() * scale));
 
 	return sampleCount;
@@ -145,10 +154,9 @@ double SquareWave(double t, int n)
 	return 4.0 * f / 1_pi;
 }
 
-double AudioSource::getSpeed() const
+float AudioSource::getSpeed() const
 {
-	const double speed = std::exp2(m_tune / 1200.0);
-	return speed;
+	return m_speed;
 }
 
 WaveSample AudioSource::getSample(int64 index) const
@@ -206,12 +214,10 @@ WaveSample AudioSource::getSample(int64 index) const
 		return sourceWave.getSample(index) * amplitude;
 	}
 
-	const double speed = std::exp2(m_tune / 1200.0);
-
-	const double readIndex = index * speed;
+	const float readIndex = index * m_speed;
 	const auto prevIndex = static_cast<int64>(Floor(readIndex));
-	const auto nextIndex = Min(static_cast<int64>(Ceil(readIndex)), static_cast<int64>(sourceWave.size() - 1));
-	const double t = Math::Fmod(readIndex, 1.0);
+	const auto nextIndex = Min(prevIndex + 1, static_cast<int64>(sourceWave.size() - 1));
+	const float t = readIndex - prevIndex;
 
 	return sourceWave.getSample(prevIndex).lerp(sourceWave.getSample(nextIndex), t) * amplitude;
 }
@@ -445,6 +451,8 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 	const double currentVolume = targetEvent.velocity / 127.0;
 	const int64 prevWriteCount = writeIndexHead - prevWriteIndexHead;
 
+	Stopwatch watch(StartImmediately::Yes);
+
 	if (Max(0ll, -writeIndexHead) < sampleReadCount)
 	{
 		const double startTime = 1.0 * startPos / attackKey.sampleRate();
@@ -475,6 +483,9 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 			}
 		}
 	}
+
+	SamplerAudioStream::time1 += watch.usF();
+	watch.restart();
 
 	for (int64 i = Max(0ll, -writeIndexHead), j = 0; i < sampleReadCount && j < sampleCount; ++i, ++j)
 	{
@@ -539,6 +550,8 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 			right[writeIndex] += sample1.right;
 		}
 	}
+
+	SamplerAudioStream::time2 += watch.usF();
 }
 
 void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex)
@@ -549,6 +562,8 @@ void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sa
 	{
 		return;
 	}
+
+	Stopwatch watch(StartImmediately::Yes);
 
 	auto& releaseKey = releaseKeys[targetEvent.releaseIndex];
 
@@ -563,6 +578,9 @@ void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sa
 		releaseKey.use(sampleBegin, samples);
 	}
 
+	SamplerAudioStream::time3 += watch.usF();
+	watch.restart();
+
 	for (int64 i = Max(0ll, -writeIndexHead), j = 0; i < sampleReadCount && j < sampleCount; ++i, ++j)
 	{
 		const int64 readIndex = i;
@@ -572,6 +590,8 @@ void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sa
 		left[writeIndex] += sample1.left;
 		right[writeIndex] += sample1.right;
 	}
+
+	SamplerAudioStream::time4 += watch.usF();
 }
 
 int64 AudioKey::getWriteIndexHead(int64 startPos, int64 noteIndex) const

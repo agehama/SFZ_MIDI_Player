@@ -617,12 +617,22 @@ void SamplerAudioStream::getAudio(float* left, float* right, const size_t sample
 		return;
 	}
 
+	SamplerAudioStream::time1 = 0;
+	SamplerAudioStream::time2 = 0;
+	SamplerAudioStream::time3 = 0;
+	SamplerAudioStream::time4 = 0;
+
 	AudioLoadManager::i().markBlocks();
 
 	Stopwatch watch(StartImmediately::Yes);
 
 	m_samplePlayer.get().getSamples(left, right, m_pos, samplesToWrite);
 	m_pos += samplesToWrite;
+	for (int i = 0; i < samplesToWrite; ++i)
+	{
+		left[i] *= volume;
+		right[i] *= volume;
+	}
 
 	const double time = watch.usF();
 
@@ -630,7 +640,7 @@ void SamplerAudioStream::getAudio(float* left, float* right, const size_t sample
 
 	if (10000 < time)
 	{
-		Console << time;
+		Console << Vec4(SamplerAudioStream::time1, SamplerAudioStream::time2, SamplerAudioStream::time3, SamplerAudioStream::time4) << U", " << time;
 	}
 }
 
@@ -638,3 +648,8 @@ void AudioRenderer::getAudio(float* left, float* right, int64 startPos, int64 sa
 {
 	m_samplePlayer.get().getSamples(left, right, startPos, sampleCount);
 }
+
+double SamplerAudioStream::time1 = 0;
+double SamplerAudioStream::time2 = 0;
+double SamplerAudioStream::time3 = 0;
+double SamplerAudioStream::time4 = 0;

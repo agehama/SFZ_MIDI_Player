@@ -59,4 +59,12 @@ private:
 
 	uint32 m_unuseCount = 0;
 	MemoryBlockList m_readBlocks;
+
+	struct BlockIndexCache
+	{
+		uint64 sampleIndexBegin;
+		uint64 sampleIndexEnd;
+		uint8* ptr;
+	};
+	mutable Array<BlockIndexCache> m_indexCache;
 };

@@ -46,12 +46,18 @@ void Main()
 
 	Graphics::SetVSyncEnabled(false);
 	bool debugDraw = false;
+	bool isMute = false;
 
 	while (System::Update())
 	{
 		if (KeyD.down())
 		{
 			debugDraw = !debugDraw;
+		}
+		if (KeyM.down())
+		{
+			isMute = !isMute;
+			audioStream->volume = isMute ? 0.0 : 1.0;
 		}
 
 		if (DragDrop::HasNewFilePaths())

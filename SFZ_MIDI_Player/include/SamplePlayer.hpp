@@ -84,6 +84,12 @@ public:
 
 	std::atomic<size_t> m_pos = 0;
 
+	static double time1;
+	static double time2;
+	static double time3;
+	static double time4;
+	double volume = 1;
+
 private:
 
 	void getAudio(float* left, float* right, const size_t samplesToWrite) override;

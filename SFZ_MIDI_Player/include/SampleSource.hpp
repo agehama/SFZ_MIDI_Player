@@ -93,13 +93,7 @@ struct AudioSource
 {
 public:
 
-	AudioSource(float amplitude, const Envelope& envelope, uint8 lovel, uint8 hivel, int32 tune):
-		m_amplitude(amplitude),
-		m_lovel(lovel),
-		m_hivel(hivel),
-		m_tune(tune),
-		m_envelope(envelope)
-	{}
+	AudioSource(float amplitude, const Envelope& envelope, uint8 lovel, uint8 hivel, int32 tune);
 
 	void setWaveIndex(size_t index)
 	{
@@ -136,7 +130,7 @@ public:
 
 	size_t lengthSample() const;
 
-	double getSpeed() const;
+	float getSpeed() const;
 
 	WaveSample getSample(int64 index) const;
 
@@ -164,6 +158,7 @@ private:
 	float m_amplitude;
 
 	int32 m_tune;// 100 == 1 semitone
+	float m_speed = 1;
 	Optional<float> m_rtDecay;
 
 	uint8 m_lovel;
