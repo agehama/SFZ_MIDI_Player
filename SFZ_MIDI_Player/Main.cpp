@@ -8,7 +8,7 @@
 #include <AudioLoadManager.hpp>
 #include <MemoryPool.hpp>
 
-//#define DEBUG_MODE
+#define DEBUG_MODE
 
 #define LAYOUT_HORIZONTAL
 
@@ -138,6 +138,9 @@ void Main()
 {
 	Window::Resize(1600, 1600);
 
+	auto& memoryPool = MemoryPool::i();
+	memoryPool.setCapacity(16ull << 20);
+
 	const auto data = LoadSfz(U"sound/Grand Piano, Kawai.sfz");
 
 	SamplePlayer player{ Rect() };
@@ -170,56 +173,94 @@ void Main()
 	DragDrop::AcceptFilePaths(true);
 	Window::SetTitle(U"MIDIファイルをドラッグドロップして再生");
 
+	bool debugDraw = false;
+	Graphics::SetVSyncEnabled(false);
+
 	while (System::Update())
 	{
 		if (DragDrop::HasNewFilePaths())
 		{
-			const auto filepath = DragDrop::GetDroppedFilePaths().front();
+			//const auto filepath = filePaths.front();
 
-			if (U"mid" == FileSystem::Extension(filepath.path))
+			for (const auto& filepath : DragDrop::GetDroppedFilePaths())
 			{
-				midiData = LoadMidi(filepath.path);
-
-				eventList = player.addEvents(midiData.value());
-
-				const size_t sampleCount = Wave::DefaultSampleRate * 60;
-				Array<float> leftSamples(sampleCount);
-				Array<float> rightSamples(sampleCount);
-
+				if (U"mid" == FileSystem::Extension(filepath.path))
 				{
-					renderer.getAudio(leftSamples.data(), rightSamples.data(), 0, sampleCount);
+					SamplerAudioStream::time1 = 0;
+					SamplerAudioStream::time2 = 0;
+					SamplerAudioStream::time3 = 0;
+					SamplerAudioStream::time4 = 0;
 
-					renderWave1 = Wave(sampleCount);
-					for (auto i : step(renderWave1.size()))
+					midiData = LoadMidi(filepath.path);
+
+					eventList = player.addEvents(midiData.value());
+
+					const size_t sampleCount = Wave::DefaultSampleRate * 60;
+					Array<float> leftSamples(sampleCount);
+					Array<float> rightSamples(sampleCount);
+
+					/*{
+						renderer.getAudio(leftSamples.data(), rightSamples.data(), 0, sampleCount);
+
+						renderWave1 = Wave(sampleCount);
+						for (auto i : step(renderWave1.size()))
+						{
+							renderWave1[i].left = leftSamples[i];
+							renderWave1[i].right = rightSamples[i];
+						}
+
+						renderWave1.saveWAVE(U"debug/render1.wav");
+					}*/
+
 					{
-						renderWave1[i].left = leftSamples[i];
-						renderWave1[i].right = rightSamples[i];
+						const int windowSize = 512;
+						const int itCount = sampleCount / windowSize;
+
+						Stopwatch watch(StartImmediately::Yes);
+						for (int i = 0; i < itCount; ++i)
+						{
+							const int startIndex = i * windowSize;
+							renderer.getAudio(&leftSamples[startIndex], &rightSamples[startIndex], startIndex, windowSize);
+
+							/*memoryPool.debugUpdate();
+
+							if (debugDraw)
+							{
+								memoryPool.debugDraw();
+							}
+
+							if (!System::Update())
+							{
+								return;
+							}*/
+						}
+						Console <<
+							SamplerAudioStream::time1 * 1.e-6 << U", " <<
+							SamplerAudioStream::time2 * 1.e-6 << U", " <<
+							SamplerAudioStream::time3 * 1.e-6 << U", " <<
+							SamplerAudioStream::time4 * 1.e-6 << U", " <<
+							watch.sF();
+
+						renderWave2 = Wave(sampleCount);
+						for (auto i : step(renderWave2.size()))
+						{
+							renderWave2[i].left = leftSamples[i];
+							renderWave2[i].right = rightSamples[i];
+						}
+
+						renderWave2.saveWAVE(U"debug/render2.wav");
 					}
 
-					renderWave1.saveWAVE(U"debug/render1.wav");
+					audio = Audio(renderWave2);
 				}
-
-				{
-					const int windowSize = 512;
-					const int itCount = sampleCount / windowSize;
-					for (int i = 0; i < itCount; ++i)
-					{
-						const int startIndex = i * windowSize;
-						renderer.getAudio(&leftSamples[startIndex], &rightSamples[startIndex], startIndex, windowSize);
-					}
-
-					renderWave2 = Wave(sampleCount);
-					for (auto i : step(renderWave2.size()))
-					{
-						renderWave2[i].left = leftSamples[i];
-						renderWave2[i].right = rightSamples[i];
-					}
-
-					renderWave2.saveWAVE(U"debug/render2.wav");
-				}
-
-				audio = Audio(renderWave2);
 			}
+
+			Console << U"complete";
+		}
+
+		if (KeyD.down())
+		{
+			debugDraw = !debugDraw;
 		}
 
 		if (KeyN.down())
@@ -333,6 +374,13 @@ void Main()
 					font(key).draw(noteRect.pos, Palette::White);
 				}
 			}
+		}
+
+		memoryPool.debugUpdate();
+
+		if (debugDraw)
+		{
+			memoryPool.debugDraw();
 		}
 	}
 }

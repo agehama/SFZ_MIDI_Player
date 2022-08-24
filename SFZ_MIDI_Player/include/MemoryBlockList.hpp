@@ -50,8 +50,7 @@ private:
 	//Array<BlockInfo> m_blocks;
 
 	// key: 波形データの先頭からのブロックインデックス
-	//std::map<uint32, BlockInfo> m_blocks;
-	HashTable<uint32, BlockInfo> m_blocks;
+	std::unordered_map<uint32, BlockInfo> m_blocks;
 
 	size_t m_id;
 };

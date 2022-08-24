@@ -16,6 +16,8 @@ public:
 
 	size_t sampleRate() const override;
 
+	float sampleRateInv() const override;
+
 	size_t lengthSample() const override;
 
 	void use(size_t beginSampleIndex, size_t sampleCount) override;

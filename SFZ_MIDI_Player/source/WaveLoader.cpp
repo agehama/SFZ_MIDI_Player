@@ -92,6 +92,7 @@ void WaveLoader::init()
 
 	m_lengthSample = m_dataSizeOfBytes / m_format.blockAlign;
 	m_sampleRate = m_format.samplePerSecond;
+	m_sampleRateInv = 1.f / m_sampleRate;
 	m_normalize = 1.f / 32767.0f;
 }
 
@@ -150,9 +151,10 @@ WaveSample WaveLoader::getSample(int64 index) const
 {
 	for (const auto& cache : m_indexCache)
 	{
-		if (cache.sampleIndexBegin <= index && index < cache.sampleIndexEnd)
+		const auto relativeIndex = index - cache.sampleIndexBegin;
+		if (0 <= relativeIndex && relativeIndex < MemoryPool::UnitBlockSampleLength)
 		{
-			const auto pSample = std::bit_cast<Sample16bit2ch*>(cache.ptr + (index - cache.sampleIndexBegin) * m_format.blockAlign);
+			const auto pSample = std::bit_cast<Sample16bit2ch*>(cache.ptr + relativeIndex * m_format.blockAlign);
 			return WaveSample(pSample->left * m_normalize, pSample->right * m_normalize);
 		}
 	}
@@ -185,12 +187,10 @@ WaveSample WaveLoader::getSample(int64 index) const
 			//*
 			const auto blockIndex = (index * m_format.blockAlign / MemoryPool::UnitBlockSizeOfBytes);
 			const auto beginSampleIndex = blockIndex * MemoryPool::UnitBlockSizeOfBytes / m_format.blockAlign;
-			const auto sampleCount = MemoryPool::UnitBlockSizeOfBytes / m_format.blockAlign;
-			const auto endSampleIndex = beginSampleIndex + sampleCount;
 
-			auto [ptr, actualReadBytes] = m_readBlocks.getWriteBuffer(beginSampleIndex * m_format.blockAlign, sizeof(Sample16bit2ch));
+			auto ptr = m_readBlocks.getBlock(blockIndex);
 
-			m_indexCache.push_back(BlockIndexCache{ beginSampleIndex, endSampleIndex, ptr });
+			m_indexCache.push_back(BlockIndexCache{ beginSampleIndex, ptr });
 
 			const auto pSample = std::bit_cast<Sample16bit2ch*>(ptr + (index - beginSampleIndex) * m_format.blockAlign);
 			return WaveSample(pSample->left * m_normalize, pSample->right * m_normalize);

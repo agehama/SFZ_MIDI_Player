@@ -117,7 +117,7 @@ size_t AudioSource::lengthSample() const
 	return sampleCount;
 }
 
-double TriangleWave(double t, int n)
+inline double TriangleWave(double t, int n)
 {
 	double f = 0;
 	for (int i = 1; i < n; ++i)
@@ -130,7 +130,7 @@ double TriangleWave(double t, int n)
 	return 8.0 * f / 1_pi;
 }
 
-double SawtoothWave(double t, int n)
+inline double SawtoothWave(double t, int n)
 {
 	double f = 0;
 	for (int i = 1; i < n; ++i)
@@ -142,7 +142,7 @@ double SawtoothWave(double t, int n)
 	return 2.0 * f / 1_pi;
 }
 
-double SquareWave(double t, int n)
+inline double SquareWave(double t, int n)
 {
 	double f = 0;
 	for (int i = 1; i < n; ++i)
@@ -152,6 +152,12 @@ double SquareWave(double t, int n)
 	}
 
 	return 4.0 * f / 1_pi;
+}
+
+// https://www.dsprelated.com/showcode/60.php
+inline float PowerOf10(float x)
+{
+	return std::bit_cast<float>(static_cast<int32>(x * 27866352.6f + 1064866808.0f));
 }
 
 float AudioSource::getSpeed() const
@@ -203,9 +209,9 @@ WaveSample AudioSource::getSample(int64 index) const
 	float amplitude = m_amplitude;
 	if (m_rtDecay)
 	{
-		const double seconds = 1.0 * index / sourceWave.sampleRate();
-		const double currentVolume = -seconds * m_rtDecay.value();
-		const float scale = static_cast<float>(std::pow(10.0, currentVolume / 20.0) * 0.5);
+		const float seconds = static_cast<float>(index) * sourceWave.sampleRateInv();
+		const float currentVolume = -seconds * m_rtDecay.value();
+		const float scale = PowerOf10(currentVolume * 0.05f) * 0.5f;
 		amplitude *= scale;
 	}
 

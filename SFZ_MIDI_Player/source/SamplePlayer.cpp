@@ -646,7 +646,11 @@ void SamplerAudioStream::getAudio(float* left, float* right, const size_t sample
 
 void AudioRenderer::getAudio(float* left, float* right, int64 startPos, int64 sampleCount)
 {
+	AudioLoadManager::i().markBlocks();
+
 	m_samplePlayer.get().getSamples(left, right, startPos, sampleCount);
+
+	AudioLoadManager::i().freeUnusedBlocks();
 }
 
 double SamplerAudioStream::time1 = 0;

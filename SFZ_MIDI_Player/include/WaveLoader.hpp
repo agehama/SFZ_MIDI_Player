@@ -15,6 +15,8 @@ public:
 
 	size_t sampleRate() const override { return m_sampleRate; }
 
+	float sampleRateInv() const override { return m_sampleRateInv; }
+
 	size_t lengthSample() const override { return m_lengthSample; }
 
 	void use(size_t beginSampleIndex, size_t sampleCount) override;
@@ -56,6 +58,7 @@ private:
 	size_t m_bytesPerSample = 0;
 	bool m_readFormat = false;
 	float m_normalize = 0;
+	float m_sampleRateInv = 0;
 
 	uint32 m_unuseCount = 0;
 	MemoryBlockList m_readBlocks;
@@ -63,7 +66,6 @@ private:
 	struct BlockIndexCache
 	{
 		uint64 sampleIndexBegin;
-		uint64 sampleIndexEnd;
 		uint8* ptr;
 	};
 	mutable Array<BlockIndexCache> m_indexCache;

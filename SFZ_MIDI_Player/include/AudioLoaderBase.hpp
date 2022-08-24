@@ -11,6 +11,8 @@ public:
 
 	virtual size_t sampleRate() const = 0;
 
+	virtual float sampleRateInv() const = 0;
+
 	virtual size_t lengthSample() const = 0;
 
 	virtual void use(size_t beginSampleIndex, size_t sampleCount) = 0;

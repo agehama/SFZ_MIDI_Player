@@ -26,6 +26,7 @@ public:
 	float m_normalizeRead = 0;
 	float m_normalizeWrite = 0;
 	bool m_initialized = false;
+	float m_sampleRateInv = 0;
 
 	MemoryBlockList m_readBlocks;
 	size_t m_loadSampleCount = 0;
@@ -188,6 +189,7 @@ protected:
 			m_dataSize = m_lengthSample * m_channels * (m_bitsPerSample / 8);
 			m_normalizeRead = 1.f / std::powf(2.0f, static_cast<float>(m_bitsPerSample) - 1);
 			m_normalizeWrite = 1.f / 32767.0f;
+			m_sampleRateInv = 1.f / m_sampleRate;
 			m_initialized = true;
 			m_loadSampleCount = 0;
 		}
@@ -218,6 +220,11 @@ size_t FlacLoader::size() const
 size_t FlacLoader::sampleRate() const
 {
 	return m_flacDecoder->m_sampleRate;
+}
+
+float FlacLoader::sampleRateInv() const
+{
+	return m_flacDecoder->m_sampleRateInv;
 }
 
 size_t FlacLoader::lengthSample() const
