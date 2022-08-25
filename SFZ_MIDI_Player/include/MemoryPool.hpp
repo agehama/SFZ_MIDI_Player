@@ -5,10 +5,15 @@ class MemoryPool
 {
 public:
 
-	static MemoryPool& i()
+	enum Type
 	{
-		static MemoryPool obj;
-		return obj;
+		ReadFile, RenderAudio, Size
+	};
+
+	static MemoryPool& i(Type type)
+	{
+		static MemoryPool obj[Type::Size];
+		return obj[type];
 	}
 
 	void setCapacity(size_t sizeOfBytes);

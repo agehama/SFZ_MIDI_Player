@@ -14,7 +14,7 @@ public:
 		FLAC::Decoder::Stream(),
 		m_filePath(path),
 		m_fileReader(path),
-		m_readBlocks(debugId)
+		m_readBlocks(debugId, MemoryPool::ReadFile)
 	{}
 
 	FLAC__uint64 m_lengthSample = 0;

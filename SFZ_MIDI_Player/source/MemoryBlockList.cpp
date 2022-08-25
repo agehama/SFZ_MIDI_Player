@@ -3,15 +3,15 @@
 #include <MemoryBlockList.hpp>
 #include <MemoryPool.hpp>
 
-MemoryBlockList::MemoryBlockList(size_t id) :
-	m_id(id)
+MemoryBlockList::MemoryBlockList(size_t id, MemoryPool::Type memoryType) :
+	m_id(id), m_memoryType(memoryType)
 {}
 
 void MemoryBlockList::allocate(size_t beginDataPos, size_t sizeOfBytes)
 {
 	assert(beginDataPos % MemoryPool::UnitBlockSizeOfBytes == 0);
 
-	auto& memoryPool = MemoryPool::i();
+	auto& memoryPool = MemoryPool::i(m_memoryType);
 
 	const size_t beginBlockIndex = beginDataPos / MemoryPool::UnitBlockSizeOfBytes;
 	const size_t blockCount = (sizeOfBytes + MemoryPool::UnitBlockSizeOfBytes - 1) / MemoryPool::UnitBlockSizeOfBytes;
@@ -29,7 +29,7 @@ void MemoryBlockList::deallocate(size_t beginDataPos, size_t sizeOfBytes)
 {
 	assert(beginDataPos % MemoryPool::UnitBlockSizeOfBytes == 0);
 
-	auto& memoryPool = MemoryPool::i();
+	auto& memoryPool = MemoryPool::i(m_memoryType);
 
 	const size_t beginBlockIndex = beginDataPos / MemoryPool::UnitBlockSizeOfBytes;
 	const size_t blockCount = (sizeOfBytes + MemoryPool::UnitBlockSizeOfBytes - 1) / MemoryPool::UnitBlockSizeOfBytes;
@@ -46,7 +46,7 @@ void MemoryBlockList::deallocate(size_t beginDataPos, size_t sizeOfBytes)
 
 void MemoryBlockList::deallocate()
 {
-	auto& memoryPool = MemoryPool::i();
+	auto& memoryPool = MemoryPool::i(m_memoryType);
 
 	for (const auto& block : m_blocks)
 	{
@@ -103,7 +103,7 @@ void MemoryBlockList::allocateSingleBlock(uint32 blockIndex)
 {
 	assert(!m_blocks.contains(blockIndex));
 
-	auto& memoryPool = MemoryPool::i();
+	auto& memoryPool = MemoryPool::i(m_memoryType);
 
 	auto [buffer, poolId] = memoryPool.allocateBlock(m_id);
 	m_blocks[blockIndex] = BlockInfo{ static_cast<uint8*>(buffer), poolId, 0 };
@@ -132,7 +132,7 @@ void MemoryBlockList::use(uint32 blockIndex)
 
 void MemoryBlockList::freeUnusedBlocks()
 {
-	auto& memoryPool = MemoryPool::i();
+	auto& memoryPool = MemoryPool::i(m_memoryType);
 
 	for (auto it = m_blocks.begin(); it != m_blocks.end();)
 	{

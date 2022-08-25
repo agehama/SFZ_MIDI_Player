@@ -8,7 +8,7 @@
 #include <AudioLoadManager.hpp>
 #include <MemoryPool.hpp>
 
-#define DEBUG_MODE
+//#define DEBUG_MODE
 
 #define LAYOUT_HORIZONTAL
 
@@ -24,9 +24,8 @@ void Main()
 	const auto [keyboardArea, pianorollArea] = SplitLeftRight(Scene::Rect(), 0.1);
 #endif
 
-	auto& memoryPool = MemoryPool::i();
-	//memoryPool.setCapacity(128ull << 20);
-	memoryPool.setCapacity(16ull << 20);
+	MemoryPool::i(MemoryPool::ReadFile).setCapacity(16ull << 20);
+	MemoryPool::i(MemoryPool::RenderAudio).setCapacity(16ull << 20);
 
 	const auto data = LoadSfz(U"sound/Grand Piano, Kawai.sfz");
 
@@ -45,14 +44,14 @@ void Main()
 	Window::SetTitle(U"MIDIファイルをドラッグドロップして再生");
 
 	Graphics::SetVSyncEnabled(false);
-	bool debugDraw = false;
+	int32 debugDraw = MemoryPool::Size;
 	bool isMute = false;
 
 	while (System::Update())
 	{
 		if (KeyD.down())
 		{
-			debugDraw = !debugDraw;
+			debugDraw = (debugDraw + 1) % (MemoryPool::Size + 1);
 		}
 		if (KeyM.down())
 		{
@@ -123,10 +122,12 @@ void Main()
 		player.drawVertical(pianoRoll, midiData);
 #endif
 
-		memoryPool.debugUpdate();
-
-		if (debugDraw)
+		if (debugDraw < MemoryPool::Size)
 		{
+			auto& memoryPool = MemoryPool::i(static_cast<MemoryPool::Type>(debugDraw));
+
+			memoryPool.debugUpdate();
+
 			memoryPool.debugDraw();
 		}
 	}

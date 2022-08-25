@@ -6,7 +6,7 @@ class MemoryBlockList
 {
 public:
 
-	MemoryBlockList(size_t id);
+	MemoryBlockList(size_t id, MemoryPool::Type memoryType);
 
 	// assert(beginDataPos % MemoryPool::UnitBlockSizeOfBytes == 0)
 	void allocate(size_t beginDataPos, size_t sizeOfBytes);
@@ -47,10 +47,9 @@ private:
 		uint8 unusedCount;
 	};
 
-	//Array<BlockInfo> m_blocks;
-
 	// key: 波形データの先頭からのブロックインデックス
 	std::unordered_map<uint32, BlockInfo> m_blocks;
 
 	size_t m_id;
+	MemoryPool::Type m_memoryType;
 };

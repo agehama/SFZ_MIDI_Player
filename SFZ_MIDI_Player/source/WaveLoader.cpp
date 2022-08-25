@@ -16,7 +16,7 @@ struct RiffChunk
 WaveLoader::WaveLoader(FilePathView path, size_t debugId) :
 	m_waveReader(path),
 	m_filePath(path),
-	m_readBlocks(debugId)
+	m_readBlocks(debugId, MemoryPool::ReadFile)
 {
 	init();
 	m_waveReader.close();
