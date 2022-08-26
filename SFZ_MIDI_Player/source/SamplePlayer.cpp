@@ -6,6 +6,7 @@
 #include <MIDILoader.hpp>
 #include <SampleSource.hpp>
 #include <AudioLoadManager.hpp>
+#include <AudioStreamRenderer.hpp>
 
 namespace
 {
@@ -622,21 +623,20 @@ void SamplerAudioStream::getAudio(float* left, float* right, const size_t sample
 	SamplerAudioStream::time3 = 0;
 	SamplerAudioStream::time4 = 0;
 
-	AudioLoadManager::i().markBlocks();
-
 	Stopwatch watch(StartImmediately::Yes);
 
-	m_samplePlayer.get().getSamples(left, right, m_pos, samplesToWrite);
-	m_pos += samplesToWrite;
+	//m_samplePlayer.get().getSamples(left, right, m_pos, samplesToWrite);
+	auto& renderer = AudioStreamRenderer::i();
+	
 	for (int i = 0; i < samplesToWrite; ++i)
 	{
+		renderer.getSample(m_pos + i);
 		left[i] *= volume;
 		right[i] *= volume;
 	}
+	m_pos += samplesToWrite;
 
 	const double time = watch.usF();
-
-	AudioLoadManager::i().freeUnusedBlocks();
 
 	if (10000 < time)
 	{

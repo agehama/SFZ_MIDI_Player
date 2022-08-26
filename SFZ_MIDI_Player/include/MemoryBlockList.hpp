@@ -26,7 +26,7 @@ public:
 
 	std::pair<uint32, uint32> blockIndexRange(size_t beginDataPos, size_t sizeOfBytes);
 
-	void allocateSingleBlock(uint32 blockIndex);
+	uint8* allocateSingleBlock(uint32 blockIndex);
 
 	uint8* getBlock(uint32 blockIndex) const;
 
@@ -35,6 +35,10 @@ public:
 	void freeUnusedBlocks();
 
 	void use(uint32 blockIndex);
+
+	size_t numOfBlocks() const;
+
+	uint32 freePreviousBlockIndex(uint32 blockIndex);
 
 private:
 

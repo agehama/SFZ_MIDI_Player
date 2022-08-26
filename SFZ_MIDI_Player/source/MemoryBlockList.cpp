@@ -99,14 +99,16 @@ std::pair<uint32, uint32> MemoryBlockList::blockIndexRange(size_t beginDataPos, 
 	return std::make_pair(beginBlockIndex, beginBlockIndex + blockCount);
 }
 
-void MemoryBlockList::allocateSingleBlock(uint32 blockIndex)
+uint8* MemoryBlockList::allocateSingleBlock(uint32 blockIndex)
 {
 	assert(!m_blocks.contains(blockIndex));
 
 	auto& memoryPool = MemoryPool::i(m_memoryType);
 
 	auto [buffer, poolId] = memoryPool.allocateBlock(m_id);
-	m_blocks[blockIndex] = BlockInfo{ static_cast<uint8*>(buffer), poolId, 0 };
+	auto ptr = static_cast<uint8*>(buffer);
+	m_blocks[blockIndex] = BlockInfo{ ptr, poolId, 0 };
+	return ptr;
 }
 
 uint8* MemoryBlockList::getBlock(uint32 blockIndex) const
@@ -146,4 +148,31 @@ void MemoryBlockList::freeUnusedBlocks()
 			it = m_blocks.erase(it);
 		}
 	}
+}
+
+size_t MemoryBlockList::numOfBlocks() const
+{
+	return m_blocks.size();
+}
+
+uint32 MemoryBlockList::freePreviousBlockIndex(uint32 blockIndex)
+{
+	auto& memoryPool = MemoryPool::i(m_memoryType);
+
+	uint32 freeCount = 0;
+	for (auto it = m_blocks.begin(); it != m_blocks.end();)
+	{
+		if (blockIndex <= it->first)
+		{
+			++it;
+		}
+		else
+		{
+			memoryPool.deallocateBlock(it->second.poolId);
+			it = m_blocks.erase(it);
+			++freeCount;
+		}
+	}
+
+	return freeCount;
 }

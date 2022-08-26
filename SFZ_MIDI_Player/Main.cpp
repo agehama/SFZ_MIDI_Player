@@ -7,6 +7,7 @@
 #include <SampleSource.hpp>
 #include <AudioLoadManager.hpp>
 #include <MemoryPool.hpp>
+#include <AudioStreamRenderer.hpp>
 
 //#define DEBUG_MODE
 
@@ -42,10 +43,31 @@ void Main()
 
 	DragDrop::AcceptFilePaths(true);
 	Window::SetTitle(U"MIDIファイルをドラッグドロップして再生");
+	Console << U"a";
 
 	Graphics::SetVSyncEnabled(false);
 	int32 debugDraw = MemoryPool::Size;
 	bool isMute = false;
+
+	auto& renderer = AudioStreamRenderer::i();
+
+	auto renderUpdate = [&]()
+	{
+		const int64 bufferSampleCount = Wave::DefaultSampleRate;
+
+		while (!renderer.isFinish())
+		{
+			while (renderer.isPlaying() && !(renderer.bufferBeginSample() <= audio.posSample() && audio.posSample() + bufferSampleCount < renderer.bufferEndSample()))
+			{
+				renderer.update(pianoRoll, player);
+				renderer.freeUntilSample(audio.posSample());
+			}
+
+			std::this_thread::sleep_for(std::chrono::milliseconds(5));
+		}
+	};
+
+	std::thread audioRenderThread(renderUpdate);
 
 	while (System::Update())
 	{
@@ -67,9 +89,13 @@ void Main()
 			{
 				pianoRoll.pause();
 				audio.pause();
+				renderer.pause();
 
 				midiData = LoadMidi(filepath.path);
 				player.addEvents(midiData.value());
+				renderer.playRestart();
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
 				pianoRoll.playRestart();
 				audioStream->restart();
 				audio.play();
@@ -131,6 +157,9 @@ void Main()
 			memoryPool.debugDraw();
 		}
 	}
+
+	AudioStreamRenderer::i().finish();
+	audioRenderThread.join();
 }
 
 #else
