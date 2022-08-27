@@ -627,13 +627,14 @@ void SamplerAudioStream::getAudio(float* left, float* right, const size_t sample
 
 	//m_samplePlayer.get().getSamples(left, right, m_pos, samplesToWrite);
 	auto& renderer = AudioStreamRenderer::i();
-	
+
 	for (int i = 0; i < samplesToWrite; ++i)
 	{
-		renderer.getSample(m_pos + i);
-		left[i] *= volume;
-		right[i] *= volume;
+		const auto sample = renderer.getSample(m_pos + i);
+		left[i] = sample.left * volume;
+		right[i] = sample.right * volume;
 	}
+
 	m_pos += samplesToWrite;
 
 	const double time = watch.usF();

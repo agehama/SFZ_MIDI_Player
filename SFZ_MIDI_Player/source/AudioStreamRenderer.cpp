@@ -47,43 +47,64 @@ int64 AudioStreamRenderer::bufferEndSample()
 	return m_bufferBeginSample + (m_writeBlocks.numOfBlocks() / 2) * MemoryPool::UnitBlockSampleLength;
 }
 
-void AudioStreamRenderer::update(PianoRoll& pianoroll, SamplePlayer& samplePlayer)
+void AudioStreamRenderer::update(PianoRoll& pianoroll, SamplePlayer& samplePlayer, int64 samplePos)
 {
 	AudioLoadManager::i().markBlocks();
 
-	const auto leftIndex = bufferEndSample() / MemoryPool::UnitBlockSampleLength;
+	lock();
+	const auto block = bufferEndSample() / MemoryPool::UnitBlockSampleLength;
+
+	const auto leftIndex = 2 * block;
 	const auto rightIndex = leftIndex + 1;
+	Console << U"allocate " << leftIndex << U", " << rightIndex;
 	auto left = m_writeBlocks.allocateSingleBlock(leftIndex);
 	auto right = m_writeBlocks.allocateSingleBlock(rightIndex);
 	samplePlayer.getSamples(std::bit_cast<float*>(left), std::bit_cast<float*>(right), bufferEndSample(), MemoryPool::UnitBlockSampleLength);
 
+	unlock();
+
 	AudioLoadManager::i().freeUnusedBlocks();
 }
 
-void AudioStreamRenderer::freeUntilSample(int64 sampleIndex)
+void AudioStreamRenderer::freePastSample(int64 sampleIndex)
 {
-	const auto blockIndex = sampleIndex / MemoryPool::UnitBlockSampleLength;
-	Console << m_writeBlocks.freePreviousBlockIndex(blockIndex);
-	m_bufferBeginSample = sampleIndex;
+	const auto block = sampleIndex / MemoryPool::UnitBlockSampleLength;
+	const auto blockIndex = 2 * block;
+
+	lock();
+	const auto [minBlockIndex, maxBlockIndex, eraseCount] = m_writeBlocks.freePreviousBlockIndex(blockIndex);
+	m_bufferBeginSample = (minBlockIndex / 2) * MemoryPool::UnitBlockSampleLength;
+
+	//Console << blockIndex << U" | [" << minBlockIndex << U", " << maxBlockIndex << U"] " << eraseCount << U" " << m_writeBlocks.numOfBlocks();
+	Console << U"remove " << eraseCount << U", bufferBeginSample: " << m_bufferBeginSample;
+	unlock();
 }
 
 WaveSample AudioStreamRenderer::getSample(int64 index) const
 {
-	const auto leftBlockIndex = (index / MemoryPool::UnitBlockSampleLength);
-	const auto leftBeginSampleIndex = leftBlockIndex * MemoryPool::UnitBlockSampleLength;
+	const auto block = index / MemoryPool::UnitBlockSampleLength;
+	const auto blockBeginSampleIndex = block * MemoryPool::UnitBlockSampleLength;
+	const auto offsetSample = index - blockBeginSampleIndex;
 
+	const auto leftBlockIndex = 2 * block;
 	const auto rightBlockIndex = leftBlockIndex + 1;
 
-	const auto offsetSample = index - leftBeginSampleIndex;
+	lock();
+	auto leftBlock = std::bit_cast<float*>(m_writeBlocks.getBlock(leftBlockIndex));
+	auto rightBlock = std::bit_cast<float*>(m_writeBlocks.getBlock(rightBlockIndex));
+	unlock();
 
-	auto leftPtr = m_writeBlocks.getBlock(leftBlockIndex) + offsetSample * sizeof(float);
-	auto rightPtr = m_writeBlocks.getBlock(rightBlockIndex) + offsetSample * sizeof(float);
-	return WaveSample(*std::bit_cast<float*>(leftPtr), *std::bit_cast<float*>(rightPtr));
-
-	//const auto leftIndex = index / MemoryPool::UnitBlockSampleLength;
-	//const auto rightIndex = leftIndex + 1;
-
-	//auto [ptr, actualReadBytes] = m_writeBlocks.getWriteBuffer(index * m_format.blockAlign, sizeof(Sample16bit2ch));
-	//const auto pSample = std::bit_cast<Sample16bit2ch*>(ptr);
-	//return WaveSample(pSample->left * m_normalize, pSample->right * m_normalize);
+	return WaveSample(leftBlock[offsetSample], rightBlock[offsetSample]);
 }
+
+void AudioStreamRenderer::lock() const
+{
+	m_mutex.lock();
+}
+
+void AudioStreamRenderer::unlock() const
+{
+	m_mutex.unlock();
+}
+
+std::mutex AudioStreamRenderer::m_mutex;

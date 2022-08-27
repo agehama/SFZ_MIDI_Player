@@ -155,24 +155,28 @@ size_t MemoryBlockList::numOfBlocks() const
 	return m_blocks.size();
 }
 
-uint32 MemoryBlockList::freePreviousBlockIndex(uint32 blockIndex)
+std::tuple<uint32, uint32, uint32> MemoryBlockList::freePreviousBlockIndex(uint32 blockIndex)
 {
 	auto& memoryPool = MemoryPool::i(m_memoryType);
 
-	uint32 freeCount = 0;
+	uint32 eraseCount = 0;
+	uint32 minBlockIndex = std::numeric_limits<uint32>::max();
+	uint32 maxBlockIndex = 0;
 	for (auto it = m_blocks.begin(); it != m_blocks.end();)
 	{
 		if (blockIndex <= it->first)
 		{
+			minBlockIndex = Min(it->first, minBlockIndex);
+			maxBlockIndex = Max(it->first, maxBlockIndex);
 			++it;
 		}
 		else
 		{
 			memoryPool.deallocateBlock(it->second.poolId);
 			it = m_blocks.erase(it);
-			++freeCount;
+			++eraseCount;
 		}
 	}
 
-	return freeCount;
+	return std::make_tuple(minBlockIndex, maxBlockIndex, eraseCount);
 }

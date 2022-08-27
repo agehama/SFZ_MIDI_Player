@@ -57,10 +57,11 @@ void Main()
 
 		while (!renderer.isFinish())
 		{
-			while (renderer.isPlaying() && !(renderer.bufferBeginSample() <= audio.posSample() && audio.posSample() + bufferSampleCount < renderer.bufferEndSample()))
+			while (renderer.isPlaying() && !(renderer.bufferBeginSample() <= audioStream->m_pos && audioStream->m_pos + bufferSampleCount < renderer.bufferEndSample()))
 			{
-				renderer.update(pianoRoll, player);
-				renderer.freeUntilSample(audio.posSample());
+				Console << U"bufferBeginSample: " << renderer.bufferBeginSample() << U", currentPosSample: " << pianoRoll.currentPosSample() << U", bufferEndSample: " << renderer.bufferEndSample();
+				renderer.update(pianoRoll, player, audioStream->m_pos);
+				renderer.freePastSample(audioStream->m_pos);
 			}
 
 			std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -94,7 +95,7 @@ void Main()
 				midiData = LoadMidi(filepath.path);
 				player.addEvents(midiData.value());
 				renderer.playRestart();
-				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+				std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
 				pianoRoll.playRestart();
 				audioStream->restart();

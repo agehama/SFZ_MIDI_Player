@@ -29,11 +29,16 @@ public:
 
 	int64 bufferEndSample();
 
-	void update(PianoRoll& pianoroll, SamplePlayer& samplePlayer);
+	void update(PianoRoll& pianoroll, SamplePlayer& samplePlayer, int64 samplePos);
 
-	void freeUntilSample(int64 sampleIndex);
+	void freePastSample(int64 sampleIndex);
 
 	WaveSample getSample(int64 index) const;
+
+	void lock() const;
+
+	void unlock() const;
+
 
 private:
 
@@ -44,4 +49,6 @@ private:
 	int64 m_bufferBeginSample = 0;
 	bool m_isFinished = false;
 	bool m_isPlaying = false;
+
+	static std::mutex m_mutex;
 };

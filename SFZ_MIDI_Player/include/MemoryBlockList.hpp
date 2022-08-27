@@ -38,7 +38,7 @@ public:
 
 	size_t numOfBlocks() const;
 
-	uint32 freePreviousBlockIndex(uint32 blockIndex);
+	std::tuple<uint32, uint32, uint32> freePreviousBlockIndex(uint32 blockIndex);
 
 private:
 
