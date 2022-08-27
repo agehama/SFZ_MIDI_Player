@@ -26,7 +26,7 @@ void Main()
 #endif
 
 	MemoryPool::i(MemoryPool::ReadFile).setCapacity(16ull << 20);
-	MemoryPool::i(MemoryPool::RenderAudio).setCapacity(16ull << 20);
+	MemoryPool::i(MemoryPool::RenderAudio).setCapacity(4ull << 20);
 
 	const auto data = LoadSfz(U"sound/Grand Piano, Kawai.sfz");
 
@@ -43,7 +43,6 @@ void Main()
 
 	DragDrop::AcceptFilePaths(true);
 	Window::SetTitle(U"MIDIファイルをドラッグドロップして再生");
-	Console << U"a";
 
 	Graphics::SetVSyncEnabled(false);
 	int32 debugDraw = MemoryPool::Size;
@@ -59,7 +58,7 @@ void Main()
 		{
 			while (renderer.isPlaying() && !(renderer.bufferBeginSample() <= audioStream->m_pos && audioStream->m_pos + bufferSampleCount < renderer.bufferEndSample()))
 			{
-				Console << U"bufferBeginSample: " << renderer.bufferBeginSample() << U", currentPosSample: " << pianoRoll.currentPosSample() << U", bufferEndSample: " << renderer.bufferEndSample();
+				//Console << U"bufferBeginSample: " << renderer.bufferBeginSample() << U", currentPosSample: " << pianoRoll.currentPosSample() << U", bufferEndSample: " << renderer.bufferEndSample();
 				renderer.update(pianoRoll, player, audioStream->m_pos);
 				renderer.freePastSample(audioStream->m_pos);
 			}
@@ -88,23 +87,23 @@ void Main()
 
 			if (U"mid" == FileSystem::Extension(filepath.path))
 			{
-				pianoRoll.pause();
 				audio.pause();
+				pianoRoll.pause();
 				renderer.pause();
+				audioStream->reset();
 
 				midiData = LoadMidi(filepath.path);
 				player.addEvents(midiData.value());
 				renderer.playRestart();
-				std::this_thread::sleep_for(std::chrono::milliseconds(500));
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
 				pianoRoll.playRestart();
-				audioStream->restart();
 				audio.play();
 			}
 			else if (U"sfz" == FileSystem::Extension(filepath.path))
 			{
-				pianoRoll.pause();
 				audio.pause();
+				pianoRoll.pause();
 
 				//AudioLoadManager::i().pause();
 				player.loadData(LoadSfz(filepath.path));
@@ -132,7 +131,7 @@ void Main()
 		if (KeyHome.down())
 		{
 			pianoRoll.playRestart();
-			audioStream->restart();
+			audioStream->reset();
 			audio.play();
 		}
 

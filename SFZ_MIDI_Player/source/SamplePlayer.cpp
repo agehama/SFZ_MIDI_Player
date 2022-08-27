@@ -639,7 +639,7 @@ void SamplerAudioStream::getAudio(float* left, float* right, const size_t sample
 
 	const double time = watch.usF();
 
-	if (10000 < time)
+	if (5000 < time)
 	{
 		Console << Vec4(SamplerAudioStream::time1, SamplerAudioStream::time2, SamplerAudioStream::time3, SamplerAudioStream::time4) << U", " << time;
 	}

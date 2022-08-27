@@ -73,7 +73,7 @@ public:
 	{
 	}
 
-	void restart()
+	void reset()
 	{
 		m_pos = 0;
 	}

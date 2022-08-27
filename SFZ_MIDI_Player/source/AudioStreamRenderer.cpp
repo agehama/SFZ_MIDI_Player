@@ -33,7 +33,11 @@ int64 AudioStreamRenderer::bufferBeginSample()
 
 void AudioStreamRenderer::playRestart()
 {
+	lock();
+	m_writeBlocks.deallocate();
 	m_isPlaying = true;
+	m_bufferBeginSample = 0;
+	unlock();
 }
 
 void AudioStreamRenderer::pause()
@@ -56,7 +60,7 @@ void AudioStreamRenderer::update(PianoRoll& pianoroll, SamplePlayer& samplePlaye
 
 	const auto leftIndex = 2 * block;
 	const auto rightIndex = leftIndex + 1;
-	Console << U"allocate " << leftIndex << U", " << rightIndex;
+	//Console << U"allocate " << leftIndex << U", " << rightIndex;
 	auto left = m_writeBlocks.allocateSingleBlock(leftIndex);
 	auto right = m_writeBlocks.allocateSingleBlock(rightIndex);
 	samplePlayer.getSamples(std::bit_cast<float*>(left), std::bit_cast<float*>(right), bufferEndSample(), MemoryPool::UnitBlockSampleLength);
@@ -76,7 +80,7 @@ void AudioStreamRenderer::freePastSample(int64 sampleIndex)
 	m_bufferBeginSample = (minBlockIndex / 2) * MemoryPool::UnitBlockSampleLength;
 
 	//Console << blockIndex << U" | [" << minBlockIndex << U", " << maxBlockIndex << U"] " << eraseCount << U" " << m_writeBlocks.numOfBlocks();
-	Console << U"remove " << eraseCount << U", bufferBeginSample: " << m_bufferBeginSample;
+	//Console << U"remove " << eraseCount << U", bufferBeginSample: " << m_bufferBeginSample;
 	unlock();
 }
 
