@@ -111,6 +111,7 @@ void Main()
 
 				//AudioLoadManager::i().pause();
 				player.loadData(LoadSfz(filepath.path));
+				player.addEvents(midiData.value());
 				//AudioLoadManager::i().resume();
 
 				if (isPlaying)
