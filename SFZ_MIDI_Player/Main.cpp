@@ -102,15 +102,22 @@ void Main()
 			}
 			else if (U"sfz" == FileSystem::Extension(filepath.path))
 			{
-				audio.pause();
-				pianoRoll.pause();
+				const bool isPlaying = pianoRoll.isPlaying();
+				if (isPlaying)
+				{
+					audio.pause();
+					pianoRoll.pause();
+				}
 
 				//AudioLoadManager::i().pause();
 				player.loadData(LoadSfz(filepath.path));
 				//AudioLoadManager::i().resume();
 
-				pianoRoll.resume();
-				audio.play();
+				if (isPlaying)
+				{
+					pianoRoll.resume();
+					audio.play();
+				}
 			}
 		}
 
