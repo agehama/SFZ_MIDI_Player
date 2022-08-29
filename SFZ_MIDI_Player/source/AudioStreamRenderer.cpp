@@ -31,6 +31,13 @@ int64 AudioStreamRenderer::bufferBeginSample()
 	return m_bufferBeginSample;
 }
 
+void AudioStreamRenderer::clearBuffer()
+{
+	lock();
+	m_writeBlocks.deallocate();
+	unlock();
+}
+
 void AudioStreamRenderer::playRestart()
 {
 	lock();

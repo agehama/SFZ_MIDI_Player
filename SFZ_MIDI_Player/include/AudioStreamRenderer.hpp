@@ -21,6 +21,8 @@ public:
 
 	bool isPlaying() const;
 
+	void clearBuffer();
+
 	void playRestart();
 
 	void pause();
