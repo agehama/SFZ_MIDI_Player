@@ -137,8 +137,12 @@ void Main()
 
 		if (KeyHome.down())
 		{
-			pianoRoll.playRestart();
+			audio.pause();
 			audioStream->reset();
+			renderer.playRestart();
+			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+			pianoRoll.playRestart();
 			audio.play();
 		}
 
