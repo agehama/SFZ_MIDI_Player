@@ -62,6 +62,68 @@ public:
 		m_loadSampleCount = 0;
 	}
 
+	void seekPos(int64 index)
+	{
+		Console << index;
+		seek_absolute(index);
+		m_loadSampleCount = index;
+	}
+
+	int64 getPos() const
+	{
+		return m_loadSampleCount;
+	}
+
+	bool isEof()
+	{
+		return eof_callback();
+	}
+
+	void readBlock(size_t beginSample, size_t sampleCount)
+	{
+		size_t readCount = sampleCount;
+
+		if (m_lengthSample <= beginSample)
+		{
+			readCount = 0;
+		}
+		else if (m_lengthSample <= beginSample + readCount)
+		{
+			readCount = m_lengthSample - beginSample;
+		}
+
+		if (1 <= readCount)
+		{
+			if (!isOpen())
+			{
+				restore();
+			}
+
+			if (auto state = static_cast<FLAC__StreamDecoderState>(get_state());
+				state == FLAC__STREAM_DECODER_SEARCH_FOR_METADATA || state == FLAC__STREAM_DECODER_READ_METADATA)
+			{
+				process_until_end_of_metadata();
+			}
+
+			//if (beginSample < getPos())
+			//{
+			//	seekPos(beginSample);
+			//}
+
+			//m_flacDecoder->process_until_end_of_stream();
+
+			for (;;)
+			{
+				if (beginSample + sampleCount <= getPos() || isEof())
+				{
+					break;
+				}
+
+				process_single();
+			}
+		}
+	}
+
 protected:
 	FilePath m_filePath;
 	BinaryReader m_fileReader;
@@ -83,6 +145,7 @@ protected:
 
 	::FLAC__StreamDecoderSeekStatus seek_callback(FLAC__uint64 absolute_byte_offset) override
 	{
+		//Console<< U"seek " << absolute_byte_offset;
 		m_fileReader.setPos(static_cast<int64>(absolute_byte_offset));
 		m_readPos = m_fileReader.getPos();
 		return FLAC__STREAM_DECODER_SEEK_STATUS_OK;
@@ -102,7 +165,8 @@ protected:
 
 	bool eof_callback() override
 	{
-		return m_fileReader.getPos() == m_fileReader.size();
+		return m_fileReader.size() <= m_fileReader.getPos() + 1;
+		//return m_fileReader.getPos() == m_fileReader.size();
 	}
 
 	::FLAC__StreamDecoderWriteStatus write_callback(const ::FLAC__Frame* frame, const FLAC__int32* const buffer[]) override
@@ -117,6 +181,7 @@ protected:
 			const size_t allocateEnd = readHead + requiredReadBytes;
 
 			m_readBlocks.allocate(allocateBegin, allocateEnd - allocateBegin);
+			//Console << U"write " << m_loadSampleCount << U", +" << frame->header.blocksize;
 		}
 
 		if (m_channels == 1)
@@ -263,61 +328,61 @@ void FlacLoader::init()
 
 void FlacLoader::use(size_t beginSampleIndex, size_t sampleCount)
 {
-	m_unuseCount = 0;
+	//m_unuseCount = 0;
 
-	if (m_use)
-	{
-		return;
-	}
+	//if (m_use)
+	//{
+	//	return;
+	//}
 
-	m_mutex.lock();
+	//m_mutex.lock();
 
-	{
-		readBlock();
+	//{
+	//	readBlock();
 
-		m_use = true;
-	}
+	//	m_use = true;
+	//}
 
-	m_mutex.unlock();
+	//m_mutex.unlock();
+
+	m_flacDecoder->readBlock(beginSampleIndex, sampleCount);
 }
 
 void FlacLoader::unuse()
 {
-	m_use = false;
-	m_flacDecoder->close();
+	//m_use = false;
+	//m_flacDecoder->close();
 }
 
 void FlacLoader::update()
 {
-	m_mutex.lock();
+	//++m_unuseCount;
+	//if (m_use && 5 < m_unuseCount)
+	//{
+	//	unuse();
+	//}
 
-	++m_unuseCount;
-	if (m_use && 5 < m_unuseCount)
-	{
-		unuse();
-	}
+	//if (m_use)
+	//{
+	//	readBlock();
+	//}
+	//else if (1 <= m_flacDecoder->m_loadSampleCount)
+	//{
+	//	m_flacDecoder->releaseBuffer();
+	//	m_flacDecoder->reset();
+	//}
 
-	if (m_use)
-	{
-		readBlock();
-	}
-	else if (1 <= m_flacDecoder->m_loadSampleCount)
-	{
-		m_flacDecoder->releaseBuffer();
-		m_flacDecoder->reset();
-	}
-
-	m_mutex.unlock();
+	//m_mutex.unlock();
 }
 
 void FlacLoader::markUnused()
 {
-
+	m_flacDecoder->m_readBlocks.markUnused();
 }
 
 void FlacLoader::freeUnusedBlocks()
 {
-
+	m_flacDecoder->m_readBlocks.freeUnusedBlocks();
 }
 
 WaveSample FlacLoader::getSample(int64 index) const
@@ -330,21 +395,3 @@ WaveSample FlacLoader::getSample(int64 index) const
 
 	return m_flacDecoder->getSample(index);
 }
-
-void FlacLoader::readBlock()
-{
-	if (!m_flacDecoder->isOpen())
-	{
-		m_flacDecoder->restore();
-	}
-
-	if (auto state = static_cast<FLAC__StreamDecoderState>(m_flacDecoder->get_state());
-		state == FLAC__STREAM_DECODER_SEARCH_FOR_METADATA || state == FLAC__STREAM_DECODER_READ_METADATA)
-	{
-		m_flacDecoder->process_until_end_of_metadata();
-	}
-
-	m_flacDecoder->process_single();
-}
-
-std::mutex FlacLoader::m_mutex;

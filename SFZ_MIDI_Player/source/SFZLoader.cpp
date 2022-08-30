@@ -288,6 +288,9 @@ SfzData LoadSfz(FilePathView sfzPath)
 	HashTable<String, String> macroDefinitions;
 	const auto text = Preprocess(RemoveComment(sfzReader.readAll()), parentDirectory, macroDefinitions);
 
+	TextWriter writer(U"debug/preprocessed.txt");
+	writer << text;
+
 	Array<RegionSetting> settings;
 	RegionSetting group;
 	Optional<RegionSetting> region;
@@ -346,11 +349,11 @@ SfzData LoadSfz(FilePathView sfzPath)
 		}
 		else if (token.starts_with(keyGroup))
 		{
-			(region ? region.value() : group).group = ParseInt<uint32>(token.substr(keyGroup.length()));
+			(region ? region.value() : group).group = ParseInt<int32>(token.substr(keyGroup.length()));
 		}
 		else if (token.starts_with(keyOffBy))
 		{
-			(region ? region.value() : group).off_by = ParseInt<uint32>(token.substr(keyOffBy.length()));
+			(region ? region.value() : group).off_by = ParseInt<int32>(token.substr(keyOffBy.length()));
 		}
 		else if (token.starts_with(keyOffMode))
 		{

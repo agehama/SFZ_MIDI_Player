@@ -36,11 +36,5 @@ private:
 
 	void init();
 
-	void readBlock();
-
 	std::unique_ptr<FlacDecoder> m_flacDecoder;
-
-	uint32 m_unuseCount = 0;
-	bool m_use = false;
-	static std::mutex m_mutex;
 };
