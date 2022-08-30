@@ -111,7 +111,10 @@ void Main()
 
 				//AudioLoadManager::i().pause();
 				player.loadData(LoadSfz(filepath.path));
-				player.addEvents(midiData.value());
+				if (midiData)
+				{
+					player.addEvents(midiData.value());
+				}
 				renderer.clearBuffer();
 				std::this_thread::sleep_for(std::chrono::milliseconds(50));
 				//AudioLoadManager::i().resume();
