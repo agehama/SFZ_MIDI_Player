@@ -436,6 +436,8 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 		return;
 	}
 
+	//Console << U"---";
+
 	auto& attackKey = attackKeys[targetEvent.attackIndex];
 
 	const auto& envelope = attackKey.envelope();

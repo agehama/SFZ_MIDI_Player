@@ -150,6 +150,8 @@ void Main()
 
 			pianoRoll.playRestart();
 			audio.play();
+
+			Console << U"---------------------";
 		}
 
 		if (midiData)
