@@ -66,6 +66,8 @@ public:
 		return level(1.0 * noteEvent.pressTimePos / Wave::DefaultSampleRate, 1.0 * noteEvent.releaseTimePos / Wave::DefaultSampleRate, time);
 	}
 
+	double releaseTime() const { return m_releaseTime; }
+
 private:
 
 	double m_attackTime = 0;
@@ -91,13 +93,7 @@ struct AudioSource
 {
 public:
 
-	AudioSource(float amplitude, const Envelope& envelope, uint8 lovel, uint8 hivel, int32 tune):
-		m_amplitude(amplitude),
-		m_lovel(lovel),
-		m_hivel(hivel),
-		m_tune(tune),
-		m_envelope(envelope)
-	{}
+	AudioSource(float amplitude, const Envelope& envelope, uint8 lovel, uint8 hivel, int32 tune);
 
 	void setWaveIndex(size_t index)
 	{
@@ -134,13 +130,13 @@ public:
 
 	size_t lengthSample() const;
 
+	float getSpeed() const;
+
 	WaveSample getSample(int64 index) const;
 
 	const Envelope& envelope() const { return m_envelope; }
 
-	void use();
-
-	void unuse();
+	void use(size_t beginSampleIndex, size_t sampleCount);
 
 	bool isOscillator() const { return m_oscillatorType.has_value(); }
 
@@ -160,6 +156,7 @@ private:
 	float m_amplitude;
 
 	int32 m_tune;// 100 == 1 semitone
+	float m_speed = 1;
 	Optional<float> m_rtDecay;
 
 	uint8 m_lovel;

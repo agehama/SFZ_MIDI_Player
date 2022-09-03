@@ -11,13 +11,15 @@ public:
 
 	virtual size_t sampleRate() const = 0;
 
+	virtual float sampleRateInv() const = 0;
+
 	virtual size_t lengthSample() const = 0;
 
-	virtual void use() = 0;
+	virtual void use(size_t beginSampleIndex, size_t sampleCount) = 0;
 
-	virtual void unuse() = 0;
+	virtual void markUnused() = 0;
 
-	virtual void update() = 0;
+	virtual void freeUnusedBlocks() = 0;
 
 	virtual WaveSample getSample(int64 index) const = 0;
 };

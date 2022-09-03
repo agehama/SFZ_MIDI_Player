@@ -73,7 +73,7 @@ public:
 	{
 	}
 
-	void restart()
+	void reset()
 	{
 		m_pos = 0;
 	}
@@ -83,6 +83,12 @@ public:
 	std::reference_wrapper<SamplePlayer> m_samplePlayer;
 
 	std::atomic<size_t> m_pos = 0;
+
+	static double time1;
+	static double time2;
+	static double time3;
+	static double time4;
+	float volume = 1;
 
 private:
 

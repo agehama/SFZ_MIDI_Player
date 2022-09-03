@@ -1,4 +1,5 @@
 ﻿#include <Siv3D.hpp> // OpenSiv3D v0.6.4
+#include <Config.hpp>
 #include <SamplePlayer.hpp>
 #include <Utility.hpp>
 #include <SFZLoader.hpp>
@@ -7,10 +8,7 @@
 #include <SampleSource.hpp>
 #include <AudioLoadManager.hpp>
 #include <MemoryPool.hpp>
-
-//#define DEBUG_MODE
-
-#define LAYOUT_HORIZONTAL
+#include <AudioStreamRenderer.hpp>
 
 #ifndef DEBUG_MODE
 
@@ -24,8 +22,8 @@ void Main()
 	const auto [keyboardArea, pianorollArea] = SplitLeftRight(Scene::Rect(), 0.1);
 #endif
 
-	auto& memoryPool = MemoryPool::i();
-	memoryPool.setCapacity(128ull << 20);
+	MemoryPool::i(MemoryPool::ReadFile).setCapacity(16ull << 20);
+	MemoryPool::i(MemoryPool::RenderAudio).setCapacity(4ull << 20);
 
 	const auto data = LoadSfz(U"sound/Grand Piano, Kawai.sfz");
 
@@ -43,29 +41,47 @@ void Main()
 	DragDrop::AcceptFilePaths(true);
 	Window::SetTitle(U"MIDIファイルをドラッグドロップして再生");
 
-	auto audioStreamUpdate = []()
+	Graphics::SetVSyncEnabled(false);
+	bool isMute = false;
+
+	auto& renderer = AudioStreamRenderer::i();
+
+	auto renderUpdate = [&]()
 	{
-		auto& audioManager = AudioLoadManager::i();
-		while (!audioManager.isFinish())
+		const size_t bufferSampleCount = Wave::DefaultSampleRate;
+
+		while (!renderer.isFinish())
 		{
-			if (audioManager.isRunning())
+			while (renderer.isPlaying() && !(renderer.bufferBeginSample() <= static_cast<int64>(audioStream->m_pos) && static_cast<int64>(audioStream->m_pos + bufferSampleCount) < renderer.bufferEndSample()))
 			{
-				audioManager.update();
+				//Console << U"bufferBeginSample: " << renderer.bufferBeginSample() << U", currentPosSample: " << pianoRoll.currentPosSample() << U", bufferEndSample: " << renderer.bufferEndSample();
+				renderer.update(player);
+				renderer.freePastSample(audioStream->m_pos);
 			}
-			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+			std::this_thread::sleep_for(std::chrono::milliseconds(5));
 		}
 	};
 
-	std::thread audioStreamThread(audioStreamUpdate);
+	std::thread audioRenderThread(renderUpdate);
 
-	Graphics::SetVSyncEnabled(false);
-	bool debugDraw = false;
+#ifdef DEVELOPMENT
+	int32 debugDraw = MemoryPool::Size;
+#endif
 
 	while (System::Update())
 	{
+#ifdef DEVELOPMENT
 		if (KeyD.down())
 		{
-			debugDraw = !debugDraw;
+			debugDraw = (debugDraw + 1) % (MemoryPool::Size + 1);
+		}
+#endif
+
+		if (KeyM.down())
+		{
+			isMute = !isMute;
+			audioStream->volume = isMute ? 0.0f : 1.0f;
 		}
 
 		if (DragDrop::HasNewFilePaths())
@@ -74,23 +90,41 @@ void Main()
 
 			if (U"mid" == FileSystem::Extension(filepath.path))
 			{
+				audio.pause();
+				pianoRoll.pause();
+				renderer.pause();
+				audioStream->reset();
+
 				midiData = LoadMidi(filepath.path);
 				player.addEvents(midiData.value());
+				renderer.playRestart();
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
 				pianoRoll.playRestart();
-				audioStream->restart();
 				audio.play();
 			}
 			else if (U"sfz" == FileSystem::Extension(filepath.path))
 			{
-				pianoRoll.pause();
-				audio.pause();
+				const bool isPlaying = pianoRoll.isPlaying();
+				if (isPlaying)
+				{
+					audio.pause();
+					pianoRoll.pause();
+				}
 
-				AudioLoadManager::i().pause();
 				player.loadData(LoadSfz(filepath.path));
-				AudioLoadManager::i().resume();
+				if (midiData)
+				{
+					player.addEvents(midiData.value());
+				}
+				renderer.clearBuffer();
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-				pianoRoll.resume();
-				audio.play();
+				if (isPlaying)
+				{
+					pianoRoll.resume();
+					audio.play();
+				}
 			}
 		}
 
@@ -110,8 +144,13 @@ void Main()
 
 		if (KeyHome.down())
 		{
+			audio.pause();
+			audioStream->reset();
+			renderer.playRestart();
+			AudioLoadManager::i().debugLog(U"---------------------");
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
 			pianoRoll.playRestart();
-			audioStream->restart();
 			audio.play();
 		}
 
@@ -128,16 +167,20 @@ void Main()
 		player.drawVertical(pianoRoll, midiData);
 #endif
 
-		memoryPool.debugUpdate();
-
-		if (debugDraw)
+#ifdef DEVELOPMENT
+		if (debugDraw < MemoryPool::Size)
 		{
+			auto& memoryPool = MemoryPool::i(static_cast<MemoryPool::Type>(debugDraw));
+
+			memoryPool.debugUpdate();
+
 			memoryPool.debugDraw();
 		}
+#endif
 	}
 
-	AudioLoadManager::i().finish();
-	audioStreamThread.join();
+	AudioStreamRenderer::i().finish();
+	audioRenderThread.join();
 }
 
 #else
@@ -145,6 +188,9 @@ void Main()
 void Main()
 {
 	Window::Resize(1600, 1600);
+
+	auto& memoryPool = MemoryPool::i();
+	memoryPool.setCapacity(16ull << 20);
 
 	const auto data = LoadSfz(U"sound/Grand Piano, Kawai.sfz");
 
@@ -178,56 +224,94 @@ void Main()
 	DragDrop::AcceptFilePaths(true);
 	Window::SetTitle(U"MIDIファイルをドラッグドロップして再生");
 
+	bool debugDraw = false;
+	Graphics::SetVSyncEnabled(false);
+
 	while (System::Update())
 	{
 		if (DragDrop::HasNewFilePaths())
 		{
-			const auto filepath = DragDrop::GetDroppedFilePaths().front();
+			//const auto filepath = filePaths.front();
 
-			if (U"mid" == FileSystem::Extension(filepath.path))
+			for (const auto& filepath : DragDrop::GetDroppedFilePaths())
 			{
-				midiData = LoadMidi(filepath.path);
-
-				eventList = player.addEvents(midiData.value());
-
-				const size_t sampleCount = Wave::DefaultSampleRate * 60;
-				Array<float> leftSamples(sampleCount);
-				Array<float> rightSamples(sampleCount);
-
+				if (U"mid" == FileSystem::Extension(filepath.path))
 				{
-					renderer.getAudio(leftSamples.data(), rightSamples.data(), 0, sampleCount);
+					SamplerAudioStream::time1 = 0;
+					SamplerAudioStream::time2 = 0;
+					SamplerAudioStream::time3 = 0;
+					SamplerAudioStream::time4 = 0;
 
-					renderWave1 = Wave(sampleCount);
-					for (auto i : step(renderWave1.size()))
+					midiData = LoadMidi(filepath.path);
+
+					eventList = player.addEvents(midiData.value());
+
+					const size_t sampleCount = Wave::DefaultSampleRate * 60;
+					Array<float> leftSamples(sampleCount);
+					Array<float> rightSamples(sampleCount);
+
+					/*{
+						renderer.getAudio(leftSamples.data(), rightSamples.data(), 0, sampleCount);
+
+						renderWave1 = Wave(sampleCount);
+						for (auto i : step(renderWave1.size()))
+						{
+							renderWave1[i].left = leftSamples[i];
+							renderWave1[i].right = rightSamples[i];
+						}
+
+						renderWave1.saveWAVE(U"debug/render1.wav");
+					}*/
+
 					{
-						renderWave1[i].left = leftSamples[i];
-						renderWave1[i].right = rightSamples[i];
+						const int windowSize = 512;
+						const int itCount = sampleCount / windowSize;
+
+						Stopwatch watch(StartImmediately::Yes);
+						for (int i = 0; i < itCount; ++i)
+						{
+							const int startIndex = i * windowSize;
+							renderer.getAudio(&leftSamples[startIndex], &rightSamples[startIndex], startIndex, windowSize);
+
+							/*memoryPool.debugUpdate();
+
+							if (debugDraw)
+							{
+								memoryPool.debugDraw();
+							}
+
+							if (!System::Update())
+							{
+								return;
+							}*/
+						}
+						Console <<
+							SamplerAudioStream::time1 * 1.e-6 << U", " <<
+							SamplerAudioStream::time2 * 1.e-6 << U", " <<
+							SamplerAudioStream::time3 * 1.e-6 << U", " <<
+							SamplerAudioStream::time4 * 1.e-6 << U", " <<
+							watch.sF();
+
+						renderWave2 = Wave(sampleCount);
+						for (auto i : step(renderWave2.size()))
+						{
+							renderWave2[i].left = leftSamples[i];
+							renderWave2[i].right = rightSamples[i];
+						}
+
+						renderWave2.saveWAVE(U"debug/render2.wav");
 					}
 
-					renderWave1.saveWAVE(U"debug/render1.wav");
+					audio = Audio(renderWave2);
 				}
-
-				{
-					const int windowSize = 512;
-					const int itCount = sampleCount / windowSize;
-					for (int i = 0; i < itCount; ++i)
-					{
-						const int startIndex = i * windowSize;
-						renderer.getAudio(&leftSamples[startIndex], &rightSamples[startIndex], startIndex, windowSize);
-					}
-
-					renderWave2 = Wave(sampleCount);
-					for (auto i : step(renderWave2.size()))
-					{
-						renderWave2[i].left = leftSamples[i];
-						renderWave2[i].right = rightSamples[i];
-					}
-
-					renderWave2.saveWAVE(U"debug/render2.wav");
-				}
-
-				audio = Audio(renderWave2);
 			}
+
+			Console << U"complete";
+		}
+
+		if (KeyD.down())
+		{
+			debugDraw = !debugDraw;
 		}
 
 		if (KeyN.down())
@@ -341,6 +425,13 @@ void Main()
 					font(key).draw(noteRect.pos, Palette::White);
 				}
 			}
+		}
+
+		memoryPool.debugUpdate();
+
+		if (debugDraw)
+		{
+			memoryPool.debugDraw();
 		}
 	}
 }

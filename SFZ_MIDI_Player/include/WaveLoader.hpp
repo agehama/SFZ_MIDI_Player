@@ -15,13 +15,15 @@ public:
 
 	size_t sampleRate() const override { return m_sampleRate; }
 
+	float sampleRateInv() const override { return m_sampleRateInv; }
+
 	size_t lengthSample() const override { return m_lengthSample; }
 
-	void use() override;
+	void use(size_t beginSampleIndex, size_t sampleCount) override;
 
-	void unuse() override;
+	void markUnused() override;
 
-	void update() override;
+	void freeUnusedBlocks() override;
 
 	WaveSample getSample(int64 index) const override;
 
@@ -39,7 +41,7 @@ private:
 
 	void init();
 
-	void readBlock();
+	void readBlock(size_t beginSampleIndex, size_t sampleCount);
 
 	BinaryReader m_waveReader;
 	FilePath m_filePath;
@@ -52,11 +54,15 @@ private:
 	size_t m_bytesPerSample = 0;
 	bool m_readFormat = false;
 	float m_normalize = 0;
+	float m_sampleRateInv = 0;
 
 	uint32 m_unuseCount = 0;
-	bool m_use = false;
-	size_t m_loadSampleCount = 0;
 	MemoryBlockList m_readBlocks;
 
-	static std::mutex m_mutex;
+	struct BlockIndexCache
+	{
+		uint64 sampleIndexBegin;
+		uint8* ptr;
+	};
+	mutable Array<BlockIndexCache> m_indexCache;
 };

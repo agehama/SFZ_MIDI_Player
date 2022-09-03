@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <Config.hpp>
 #include <SamplePlayer.hpp>
 #include <Animation.hpp>
 #include <SFZLoader.hpp>
@@ -6,6 +7,7 @@
 #include <MIDILoader.hpp>
 #include <SampleSource.hpp>
 #include <AudioLoadManager.hpp>
+#include <AudioStreamRenderer.hpp>
 
 namespace
 {
@@ -617,11 +619,45 @@ void SamplerAudioStream::getAudio(float* left, float* right, const size_t sample
 		return;
 	}
 
-	m_samplePlayer.get().getSamples(left, right, m_pos, samplesToWrite);
+	SamplerAudioStream::time1 = 0;
+	SamplerAudioStream::time2 = 0;
+	SamplerAudioStream::time3 = 0;
+	SamplerAudioStream::time4 = 0;
+
+	Stopwatch watch(StartImmediately::Yes);
+
+	//m_samplePlayer.get().getSamples(left, right, m_pos, samplesToWrite);
+	auto& renderer = AudioStreamRenderer::i();
+
+	for (int i = 0; i < samplesToWrite; ++i)
+	{
+		const auto sample = renderer.getSample(m_pos + i);
+		left[i] = sample.left * volume;
+		right[i] = sample.right * volume;
+	}
+
 	m_pos += samplesToWrite;
+
+#ifdef DEVELOPMENT
+	const double time = watch.usF();
+
+	if (5000 < time)
+	{
+		Console << Vec4(SamplerAudioStream::time1, SamplerAudioStream::time2, SamplerAudioStream::time3, SamplerAudioStream::time4) << U", " << time;
+	}
+#endif
 }
 
 void AudioRenderer::getAudio(float* left, float* right, int64 startPos, int64 sampleCount)
 {
+	AudioLoadManager::i().markBlocks();
+
 	m_samplePlayer.get().getSamples(left, right, startPos, sampleCount);
+
+	AudioLoadManager::i().freeUnusedBlocks();
 }
+
+double SamplerAudioStream::time1 = 0;
+double SamplerAudioStream::time2 = 0;
+double SamplerAudioStream::time3 = 0;
+double SamplerAudioStream::time4 = 0;
