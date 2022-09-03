@@ -17,7 +17,7 @@ void MemoryPool::setCapacity(size_t sizeOfBytes)
 	}
 
 	{
-		const int32 width = Math::Round(Sqrt(blockCount));
+		const int32 width = static_cast<int32>(Math::Round(Sqrt(blockCount)));
 		const int32 height = static_cast<int32>(Math::Ceil(1.0 * blockCount / width));
 
 		m_debugImage = Image(width, height, Palette::Black);

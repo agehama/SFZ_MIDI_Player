@@ -98,42 +98,12 @@ void WaveLoader::init()
 
 void WaveLoader::use(size_t beginSampleIndex, size_t sampleCount)
 {
-	//m_unuseCount = 0;
-
-	//if (m_use)
-	//{
-	//	return;
-	//}
-
-	//m_mutex.lock();
-
+	if (!m_waveReader.isOpen())
 	{
-		//m_loadSampleCount = 0;
-
-		if (!m_waveReader.isOpen())
-		{
-			m_waveReader.open(m_filePath);
-		}
-
-		//if (m_waveReader.getPos() != m_dataBeginPos)
-		//{
-		//	m_waveReader.setPos(m_dataBeginPos);
-		//}
-
-		readBlock(beginSampleIndex, sampleCount);
+		m_waveReader.open(m_filePath);
 	}
 
-	//m_mutex.unlock();
-}
-
-void WaveLoader::unuse()
-{
-	//m_use = false;
-	//m_waveReader.close();
-}
-
-void WaveLoader::update()
-{
+	readBlock(beginSampleIndex, sampleCount);
 }
 
 void WaveLoader::markUnused()
@@ -185,7 +155,7 @@ WaveSample WaveLoader::getSample(int64 index) const
 		else// if (m_format.bitsPerSample == 16)
 		{
 			//*
-			const auto blockIndex = (index * m_format.blockAlign / MemoryPool::UnitBlockSizeOfBytes);
+			const auto blockIndex = static_cast<uint32>((index * m_format.blockAlign / MemoryPool::UnitBlockSizeOfBytes));
 			const auto beginSampleIndex = blockIndex * MemoryPool::UnitBlockSizeOfBytes / m_format.blockAlign;
 
 			auto ptr = m_readBlocks.getBlock(blockIndex);

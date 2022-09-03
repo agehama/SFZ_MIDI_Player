@@ -88,7 +88,7 @@ public:
 	static double time2;
 	static double time3;
 	static double time4;
-	double volume = 1;
+	float volume = 1;
 
 private:
 

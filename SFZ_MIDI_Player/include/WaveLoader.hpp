@@ -21,10 +21,6 @@ public:
 
 	void use(size_t beginSampleIndex, size_t sampleCount) override;
 
-	void unuse() override;
-
-	void update() override;
-
 	void markUnused() override;
 
 	void freeUnusedBlocks() override;

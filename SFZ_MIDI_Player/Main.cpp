@@ -49,14 +49,14 @@ void Main()
 
 	auto renderUpdate = [&]()
 	{
-		const int64 bufferSampleCount = Wave::DefaultSampleRate;
+		const size_t bufferSampleCount = Wave::DefaultSampleRate;
 
 		while (!renderer.isFinish())
 		{
-			while (renderer.isPlaying() && !(renderer.bufferBeginSample() <= audioStream->m_pos && audioStream->m_pos + bufferSampleCount < renderer.bufferEndSample()))
+			while (renderer.isPlaying() && !(renderer.bufferBeginSample() <= static_cast<int64>(audioStream->m_pos) && static_cast<int64>(audioStream->m_pos + bufferSampleCount) < renderer.bufferEndSample()))
 			{
 				//Console << U"bufferBeginSample: " << renderer.bufferBeginSample() << U", currentPosSample: " << pianoRoll.currentPosSample() << U", bufferEndSample: " << renderer.bufferEndSample();
-				renderer.update(player, audioStream->m_pos);
+				renderer.update(player);
 				renderer.freePastSample(audioStream->m_pos);
 			}
 
@@ -75,7 +75,7 @@ void Main()
 		if (KeyM.down())
 		{
 			isMute = !isMute;
-			audioStream->volume = isMute ? 0.0 : 1.0;
+			audioStream->volume = isMute ? 0.0f : 1.0f;
 		}
 
 		if (DragDrop::HasNewFilePaths())

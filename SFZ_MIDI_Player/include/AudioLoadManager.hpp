@@ -15,8 +15,6 @@ public:
 
 	size_t load(FilePathView path);
 
-	void update();
-
 	void markBlocks();
 
 	void freeUnusedBlocks();

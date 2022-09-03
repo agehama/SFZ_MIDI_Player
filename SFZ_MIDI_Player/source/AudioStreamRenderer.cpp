@@ -58,12 +58,12 @@ int64 AudioStreamRenderer::bufferEndSample()
 	return m_bufferBeginSample + (m_writeBlocks.numOfBlocks() / 2) * MemoryPool::UnitBlockSampleLength;
 }
 
-void AudioStreamRenderer::update(SamplePlayer& samplePlayer, int64 samplePos)
+void AudioStreamRenderer::update(SamplePlayer& samplePlayer)
 {
 	AudioLoadManager::i().markBlocks();
 
 	lock();
-	const auto block = bufferEndSample() / MemoryPool::UnitBlockSampleLength;
+	const auto block = static_cast<uint32>(bufferEndSample() / MemoryPool::UnitBlockSampleLength);
 
 	const auto leftIndex = 2 * block;
 	const auto rightIndex = leftIndex + 1;
@@ -79,7 +79,7 @@ void AudioStreamRenderer::update(SamplePlayer& samplePlayer, int64 samplePos)
 
 void AudioStreamRenderer::freePastSample(int64 sampleIndex)
 {
-	const auto block = sampleIndex / MemoryPool::UnitBlockSampleLength;
+	const auto block = static_cast<uint32>(sampleIndex / MemoryPool::UnitBlockSampleLength);
 	const auto blockIndex = 2 * block;
 
 	lock();
@@ -96,7 +96,7 @@ void AudioStreamRenderer::freePastSample(int64 sampleIndex)
 
 WaveSample AudioStreamRenderer::getSample(int64 index) const
 {
-	const auto block = index / MemoryPool::UnitBlockSampleLength;
+	const auto block = static_cast<uint32>(index / MemoryPool::UnitBlockSampleLength);
 	const auto blockBeginSampleIndex = block * MemoryPool::UnitBlockSampleLength;
 	const auto offsetSample = index - blockBeginSampleIndex;
 

@@ -31,7 +31,7 @@ public:
 
 	int64 bufferEndSample();
 
-	void update(SamplePlayer& samplePlayer, int64 samplePos);
+	void update(SamplePlayer& samplePlayer);
 
 	void freePastSample(int64 sampleIndex);
 

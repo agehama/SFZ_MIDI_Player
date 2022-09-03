@@ -13,9 +13,9 @@ void MemoryBlockList::allocate(size_t beginDataPos, size_t sizeOfBytes)
 
 	auto& memoryPool = MemoryPool::i(m_memoryType);
 
-	const size_t beginBlockIndex = beginDataPos / MemoryPool::UnitBlockSizeOfBytes;
-	const size_t blockCount = (sizeOfBytes + MemoryPool::UnitBlockSizeOfBytes - 1) / MemoryPool::UnitBlockSizeOfBytes;
-	for (size_t i = beginBlockIndex; i < beginBlockIndex + blockCount; ++i)
+	const uint32 beginBlockIndex = static_cast<uint32>(beginDataPos / MemoryPool::UnitBlockSizeOfBytes);
+	const uint32 blockCount = static_cast<uint32>((sizeOfBytes + MemoryPool::UnitBlockSizeOfBytes - 1) / MemoryPool::UnitBlockSizeOfBytes);
+	for (uint32 i = beginBlockIndex; i < beginBlockIndex + blockCount; ++i)
 	{
 		if (!m_blocks.contains(i))
 		{
@@ -36,9 +36,9 @@ void MemoryBlockList::deallocate(size_t beginDataPos, size_t sizeOfBytes)
 
 	auto& memoryPool = MemoryPool::i(m_memoryType);
 
-	const size_t beginBlockIndex = beginDataPos / MemoryPool::UnitBlockSizeOfBytes;
-	const size_t blockCount = (sizeOfBytes + MemoryPool::UnitBlockSizeOfBytes - 1) / MemoryPool::UnitBlockSizeOfBytes;
-	for (size_t i = beginBlockIndex; i < beginBlockIndex + blockCount; ++i)
+	const uint32 beginBlockIndex = static_cast<uint32>(beginDataPos / MemoryPool::UnitBlockSizeOfBytes);
+	const uint32 blockCount = static_cast<uint32>((sizeOfBytes + MemoryPool::UnitBlockSizeOfBytes - 1) / MemoryPool::UnitBlockSizeOfBytes);
+	for (uint32 i = beginBlockIndex; i < beginBlockIndex + blockCount; ++i)
 	{
 		auto it = m_blocks.find(i);
 		if (it != m_blocks.end())
@@ -65,7 +65,7 @@ std::pair<uint8*, size_t> MemoryBlockList::getWriteBuffer(size_t beginDataPos, s
 {
 	const uint32 blockIndex = static_cast<uint32>(beginDataPos / MemoryPool::UnitBlockSizeOfBytes);
 
-	const uint32 dataOffset = static_cast<uint32>(beginDataPos) - blockIndex * MemoryPool::UnitBlockSizeOfBytes;
+	const uint32 dataOffset = static_cast<uint32>(beginDataPos - blockIndex * MemoryPool::UnitBlockSizeOfBytes);
 	const size_t dataSize = Min(MemoryPool::UnitBlockSizeOfBytes - dataOffset, expectSizeOfBytes);
 
 	assert(m_blocks.contains(blockIndex));
@@ -84,11 +84,11 @@ bool MemoryBlockList::isAllocatedBlock(uint32 blockIndex)
 
 Array<std::pair<uint32, bool>> MemoryBlockList::blockIndices(size_t beginDataPos, size_t sizeOfBytes)
 {
-	const size_t beginBlockIndex = beginDataPos / MemoryPool::UnitBlockSizeOfBytes;
-	const size_t blockCount = (sizeOfBytes + MemoryPool::UnitBlockSizeOfBytes - 1) / MemoryPool::UnitBlockSizeOfBytes;
+	const uint32 beginBlockIndex = static_cast<uint32>(beginDataPos / MemoryPool::UnitBlockSizeOfBytes);
+	const uint32 blockCount = static_cast<uint32>((sizeOfBytes + MemoryPool::UnitBlockSizeOfBytes - 1) / MemoryPool::UnitBlockSizeOfBytes);
 
 	Array<std::pair<uint32, bool>> result(blockCount);
-	for (size_t i = 0; i < blockCount; ++i)
+	for (uint32 i = 0; i < blockCount; ++i)
 	{
 		const auto blockIndex = beginBlockIndex + i;
 		result[i] = std::make_pair(blockIndex, m_blocks.contains(blockIndex));

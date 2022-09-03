@@ -138,8 +138,6 @@ public:
 
 	void use(size_t beginSampleIndex, size_t sampleCount);
 
-	void unuse();
-
 	bool isOscillator() const { return m_oscillatorType.has_value(); }
 
 	uint32 group() const { return m_group; }

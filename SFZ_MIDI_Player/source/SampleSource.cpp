@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <Config.hpp>
 #include <AudioLoadManager.hpp>
 #include <SampleSource.hpp>
 #include <SamplePlayer.hpp>
@@ -236,14 +237,6 @@ void AudioSource::use(size_t beginSampleIndex, size_t sampleCount)
 	}
 }
 
-void AudioSource::unuse()
-{
-	if (!isOscillator())
-	{
-		getReader().unuse();
-	}
-}
-
 const AudioLoaderBase& AudioSource::getReader() const
 {
 	return AudioLoadManager::i().reader(m_index);
@@ -436,8 +429,6 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 		return;
 	}
 
-	//Console << U"---";
-
 	auto& attackKey = attackKeys[targetEvent.attackIndex];
 
 	const auto& envelope = attackKey.envelope();
@@ -447,19 +438,12 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 
 	const auto [sampleReadCount, sampleEmptyCount] = readEmptyCount(startPos, sampleCount, noteIndex);
 
-	/*Console << noteIndex << U"[" << noteKey << U"]v" << targetEvent.index << U" -> "
-		<< Point(targetEvent.pressTimePos, targetEvent.releaseTimePos)
-		<< U", readStart: " << waveStartPos
-		<< U", maxReadCount: " << maxGateSamples
-		<< U", writeStart: " << writeIndexHead
-		<< U", maxWriteCount: " << maxWriteCount
-		<< U", sampleReadCount: " << sampleReadCount
-		<< U", sampleEmptyCount: " << sampleEmptyCount;*/
-
 	const double currentVolume = targetEvent.velocity / 127.0;
 	const int64 prevWriteCount = writeIndexHead - prevWriteIndexHead;
 
+#ifdef DEVELOPMENT
 	Stopwatch watch(StartImmediately::Yes);
+#endif
 
 	if (Max(0ll, -writeIndexHead) < sampleReadCount)
 	{
@@ -492,14 +476,14 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 		}
 	}
 
+#ifdef DEVELOPMENT
 	SamplerAudioStream::time1 += watch.usF();
 	watch.restart();
+#endif
 
 	for (int64 i = Max(0ll, -writeIndexHead), j = 0; i < sampleReadCount && j < sampleCount; ++i, ++j)
 	{
-		//const int64 readIndex = startIndex + i;
 		const int64 readIndex = i;
-		//const int64 readIndex = startIndex + j;
 		const int64 writeIndex = writeIndexHead + i;
 		const double time = 1.0 * (startPos + writeIndex) / attackKey.sampleRate();
 
@@ -511,7 +495,6 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 			if (disableTimePos < currentTimePos)
 			{
 				const auto disableTime = 1.0 * (currentTimePos - disableTimePos) / attackKey.sampleRate();
-
 				disableCoeff = 1.0 - Saturate(disableTime / attackKey.disableFadeSeconds());
 			}
 		}
@@ -559,7 +542,9 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 		}
 	}
 
+#ifdef DEVELOPMENT
 	SamplerAudioStream::time2 += watch.usF();
+#endif
 }
 
 void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex)
@@ -571,7 +556,9 @@ void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sa
 		return;
 	}
 
+#ifdef DEVELOPMENT
 	Stopwatch watch(StartImmediately::Yes);
+#endif
 
 	auto& releaseKey = releaseKeys[targetEvent.releaseIndex];
 
@@ -586,8 +573,10 @@ void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sa
 		releaseKey.use(sampleBegin, samples);
 	}
 
+#ifdef DEVELOPMENT
 	SamplerAudioStream::time3 += watch.usF();
 	watch.restart();
+#endif
 
 	for (int64 i = Max(0ll, -writeIndexHead), j = 0; i < sampleReadCount && j < sampleCount; ++i, ++j)
 	{
@@ -599,7 +588,9 @@ void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sa
 		right[writeIndex] += sample1.right;
 	}
 
+#ifdef DEVELOPMENT
 	SamplerAudioStream::time4 += watch.usF();
+#endif
 }
 
 int64 AudioKey::getWriteIndexHead(int64 startPos, int64 noteIndex) const
