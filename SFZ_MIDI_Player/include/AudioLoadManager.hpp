@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
+#include "Config.hpp"
 #include "AudioLoaderBase.hpp"
 
 class AudioLoadManager
@@ -34,12 +35,23 @@ public:
 
 	void resume() { m_isPause = false; }
 
+	void debugLog(const String& str);
+
 private:
 
-	AudioLoadManager() = default;
+	AudioLoadManager()
+	{
+#ifdef DEVELOPMENT
+		m_debugLog = TextWriter(U"debug/audioDebugLog.txt");
+#endif
+	}
 
 	Array<std::unique_ptr<AudioLoaderBase>> m_waveReaders;
 	Array<String> m_paths;
 	bool m_isPause = false;
 	bool m_isFinish = false;
+
+#ifdef DEVELOPMENT
+	TextWriter m_debugLog;
+#endif
 };

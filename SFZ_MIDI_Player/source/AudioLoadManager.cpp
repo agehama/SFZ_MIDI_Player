@@ -76,3 +76,10 @@ AudioLoaderBase& AudioLoadManager::reader(size_t index)
 {
 	return *m_waveReaders[index];
 }
+
+void AudioLoadManager::debugLog(const String& str)
+{
+#ifdef DEVELOPMENT
+	m_debugLog << str;
+#endif
+}

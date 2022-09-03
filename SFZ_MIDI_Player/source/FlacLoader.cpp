@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <FlacLoader.hpp>
 #include <MemoryBlockList.hpp>
+#include <AudioLoadManager.hpp>
 
 #define FLAC__NO_DLL
 #include <FLAC++/decoder.h>
@@ -50,6 +51,11 @@ public:
 
 	WaveSample getSample(int64 index) const
 	{
+		if (m_lengthSample <= index)
+		{
+			return WaveSample(0, 0);
+		}
+
 		const size_t blockAlign = sizeof(uint16) * 2;
 		auto [ptr, actualReadBytes] = m_readBlocks.getWriteBuffer(index * blockAlign, sizeof(Sample16bit2ch));
 		const auto pSample = std::bit_cast<Sample16bit2ch*>(ptr);
@@ -104,22 +110,34 @@ public:
 				const size_t allocateBegin = (readHead / MemoryPool::UnitBlockSizeOfBytes) * MemoryPool::UnitBlockSizeOfBytes;
 				const size_t allocateEnd = readHead + requiredReadBytes;
 
+				m_readBlocks.allocate(allocateBegin, allocateEnd - allocateBegin);
+				const auto [beginBlock, endBlock] = m_readBlocks.blockIndexRange(allocateBegin, allocateEnd - allocateBegin);
+
+				// write_callbackで無音部分は飛ばされるので0クリアしておく必要がある
+				for (uint32 blockIndex = beginBlock; blockIndex < endBlock; ++blockIndex)
+				{
+					auto ptr = m_readBlocks.getBlock(blockIndex);
+					for (uint32 i = 0; i < MemoryPool::UnitBlockSizeOfBytes; ++i)
+					{
+						ptr[i] = 0;
+					}
+				}
+
 				//m_tempBeginSample = allocateBegin / blockAlign;
 				//m_tempSampleCount = (allocateEnd - allocateBegin) / blockAlign;
 				m_tempBeginSample = beginSample;
 				m_tempSampleCount = readCount;
 
 				//m_readBlocks.deallocate();
-				m_readBlocks.allocate(allocateBegin, allocateEnd - allocateBegin);
 
 				if (!isOpen())
 				{
 					restore();
 				}
 
-				Console << U"<" << beginSample << U", " << (beginSample + readCount) << U">";
-				m_read = false;
-				seekPos(0);
+				//Console << U"<" << beginSample << U", " << (beginSample + readCount) << U">";
+				//m_read = false;
+				//seekPos(0);
 				//reset();
 
 				if (auto state = static_cast<FLAC__StreamDecoderState>(get_state());
@@ -130,7 +148,6 @@ public:
 
 				m_read = true;
 				seekPos(beginSample);
-
 
 				for (;;)
 				{
@@ -145,7 +162,7 @@ public:
 					}
 				}
 
-				Console << U"end: " << m_tempBeginSample;
+				//Console << U"end: " << m_tempBeginSample;
 			}
 		}
 	}
@@ -222,8 +239,7 @@ protected:
 			return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
 		}
 
-		Console << U"write: <" << frame->header.number.sample_number << U", "
-			<< (frame->header.number.sample_number + frame->header.blocksize) << U">";
+		//Console << U"write: <" << frame->header.number.sample_number << U", " << (frame->header.number.sample_number + frame->header.blocksize) << U">";
 
 		//size_t readHead = m_loadSampleCount * blockAlign;
 		int64 readHead = static_cast<int64>(frame->header.number.sample_number * blockAlign);
@@ -251,21 +267,22 @@ protected:
 				}
 
 				auto [ptr, actualReadBytes] = m_readBlocks.getWriteBuffer(readHead, requiredReadBytes);
-				readHead += actualReadBytes;
-				requiredReadBytes -= actualReadBytes;
-
 				auto pSample = std::bit_cast<Sample16bit2ch*>(ptr);
 
 				const size_t readCount = actualReadBytes / blockAlign;
 
 				//if (m_bitsPerSample == 16)
 				{
-					Console << mono[0] << U", " << mono[1] << U", " << mono[2] << U", " << mono[3];
 					for (size_t i = 0; i < readCount; i++)
 					{
-						pSample[i].left = pSample[i].right = static_cast<int16>(mono[i] * m_normalizeRead * 32767);
+						const auto value = static_cast<int16>(mono[i] * m_normalizeRead * 32767);
+						//AudioLoadManager::i().debugLog(U"w {}: {}"_fmt((readHead / blockAlign + i), (mono[i] * m_normalizeRead)));
+						pSample[i].left = pSample[i].right = value;
 					}
 				}
+
+				readHead += actualReadBytes;
+				requiredReadBytes -= actualReadBytes;
 
 				mono += readCount;
 				m_tempBeginSample += readCount;
@@ -449,13 +466,13 @@ void FlacLoader::update()
 
 void FlacLoader::markUnused()
 {
-	//m_flacDecoder->m_readBlocks.markUnused();
+	m_flacDecoder->m_readBlocks.markUnused();
 }
 
 void FlacLoader::freeUnusedBlocks()
 {
-	//m_flacDecoder->m_readBlocks.freeUnusedBlocks();
-	m_flacDecoder->m_readBlocks.deallocate();
+	m_flacDecoder->m_readBlocks.freeUnusedBlocks();
+	//m_flacDecoder->m_readBlocks.deallocate();
 }
 
 WaveSample FlacLoader::getSample(int64 index) const
@@ -466,5 +483,9 @@ WaveSample FlacLoader::getSample(int64 index) const
 	//	Console << U"error: FlacLoader::getSample() invalid sample index: " << index;
 	//}
 
-	return m_flacDecoder->getSample(index);
+	//AudioLoadManager::i().debugLog(U"getSample: {}"_fmt(index));
+	
+	auto sample = m_flacDecoder->getSample(index);
+	//AudioLoadManager::i().debugLog(U"s {}: {}"_fmt(index, sample.left));
+	return sample;
 }

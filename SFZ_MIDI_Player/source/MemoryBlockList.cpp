@@ -20,7 +20,8 @@ void MemoryBlockList::allocate(size_t beginDataPos, size_t sizeOfBytes)
 		if (!m_blocks.contains(i))
 		{
 			auto [buffer, poolId] = memoryPool.allocateBlock(m_id);
-			m_blocks[i] = BlockInfo{ static_cast<uint8*>(buffer), poolId, 0 };
+			auto ptr = static_cast<uint8*>(buffer);
+			m_blocks[i] = BlockInfo{ ptr, poolId, 0 };
 		}
 		else
 		{
@@ -142,7 +143,7 @@ void MemoryBlockList::freeUnusedBlocks()
 
 	for (auto it = m_blocks.begin(); it != m_blocks.end();)
 	{
-		if (it->second.unusedCount < 200)
+		if (it->second.unusedCount < 100)
 		{
 			++it;
 		}

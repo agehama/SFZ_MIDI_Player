@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <Config.hpp>
 #include <SamplePlayer.hpp>
 #include <Animation.hpp>
 #include <SFZLoader.hpp>
@@ -637,12 +638,14 @@ void SamplerAudioStream::getAudio(float* left, float* right, const size_t sample
 
 	m_pos += samplesToWrite;
 
+#ifdef DEVELOPMENT
 	const double time = watch.usF();
 
 	if (5000 < time)
 	{
 		Console << Vec4(SamplerAudioStream::time1, SamplerAudioStream::time2, SamplerAudioStream::time3, SamplerAudioStream::time4) << U", " << time;
 	}
+#endif
 }
 
 void AudioRenderer::getAudio(float* left, float* right, int64 startPos, int64 sampleCount)

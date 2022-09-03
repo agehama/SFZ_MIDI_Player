@@ -58,7 +58,7 @@ int64 AudioStreamRenderer::bufferEndSample()
 	return m_bufferBeginSample + (m_writeBlocks.numOfBlocks() / 2) * MemoryPool::UnitBlockSampleLength;
 }
 
-void AudioStreamRenderer::update(PianoRoll& pianoroll, SamplePlayer& samplePlayer, int64 samplePos)
+void AudioStreamRenderer::update(SamplePlayer& samplePlayer, int64 samplePos)
 {
 	AudioLoadManager::i().markBlocks();
 
@@ -84,7 +84,10 @@ void AudioStreamRenderer::freePastSample(int64 sampleIndex)
 
 	lock();
 	const auto [minBlockIndex, maxBlockIndex, eraseCount] = m_writeBlocks.freePreviousBlockIndex(blockIndex);
-	m_bufferBeginSample = (minBlockIndex / 2) * MemoryPool::UnitBlockSampleLength;
+	if (1 <= eraseCount)
+	{
+		m_bufferBeginSample = (minBlockIndex / 2) * MemoryPool::UnitBlockSampleLength;
+	}
 
 	//Console << blockIndex << U" | [" << minBlockIndex << U", " << maxBlockIndex << U"] " << eraseCount << U" " << m_writeBlocks.numOfBlocks();
 	//Console << U"remove " << eraseCount << U", bufferBeginSample: " << m_bufferBeginSample;

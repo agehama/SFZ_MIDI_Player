@@ -332,6 +332,7 @@
     <ClInclude Include="include\AudioLoaderBase.hpp" />
     <ClInclude Include="include\AudioLoadManager.hpp" />
     <ClInclude Include="include\AudioStreamRenderer.hpp" />
+    <ClInclude Include="include\Config.hpp" />
     <ClInclude Include="include\FlacLoader.hpp" />
     <ClInclude Include="include\MemoryBlockList.hpp" />
     <ClInclude Include="include\MemoryPool.hpp" />

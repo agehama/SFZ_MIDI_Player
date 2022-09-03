@@ -1,4 +1,5 @@
 ﻿#include <Siv3D.hpp> // OpenSiv3D v0.6.4
+#include <Config.hpp>
 #include <SamplePlayer.hpp>
 #include <Utility.hpp>
 #include <SFZLoader.hpp>
@@ -8,10 +9,6 @@
 #include <AudioLoadManager.hpp>
 #include <MemoryPool.hpp>
 #include <AudioStreamRenderer.hpp>
-
-//#define DEBUG_MODE
-
-#define LAYOUT_HORIZONTAL
 
 #ifndef DEBUG_MODE
 
@@ -59,7 +56,7 @@ void Main()
 			while (renderer.isPlaying() && !(renderer.bufferBeginSample() <= audioStream->m_pos && audioStream->m_pos + bufferSampleCount < renderer.bufferEndSample()))
 			{
 				//Console << U"bufferBeginSample: " << renderer.bufferBeginSample() << U", currentPosSample: " << pianoRoll.currentPosSample() << U", bufferEndSample: " << renderer.bufferEndSample();
-				renderer.update(pianoRoll, player, audioStream->m_pos);
+				renderer.update(player, audioStream->m_pos);
 				renderer.freePastSample(audioStream->m_pos);
 			}
 
@@ -95,7 +92,7 @@ void Main()
 				midiData = LoadMidi(filepath.path);
 				player.addEvents(midiData.value());
 				renderer.playRestart();
-				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 				pianoRoll.playRestart();
 				audio.play();
@@ -109,15 +106,13 @@ void Main()
 					pianoRoll.pause();
 				}
 
-				//AudioLoadManager::i().pause();
 				player.loadData(LoadSfz(filepath.path));
 				if (midiData)
 				{
 					player.addEvents(midiData.value());
 				}
 				renderer.clearBuffer();
-				std::this_thread::sleep_for(std::chrono::milliseconds(50));
-				//AudioLoadManager::i().resume();
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 				if (isPlaying)
 				{
@@ -146,12 +141,11 @@ void Main()
 			audio.pause();
 			audioStream->reset();
 			renderer.playRestart();
-			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+			AudioLoadManager::i().debugLog(U"---------------------");
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 			pianoRoll.playRestart();
 			audio.play();
-
-			Console << U"---------------------";
 		}
 
 		if (midiData)
