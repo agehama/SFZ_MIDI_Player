@@ -42,7 +42,6 @@ void Main()
 	Window::SetTitle(U"MIDIファイルをドラッグドロップして再生");
 
 	Graphics::SetVSyncEnabled(false);
-	int32 debugDraw = MemoryPool::Size;
 	bool isMute = false;
 
 	auto& renderer = AudioStreamRenderer::i();
@@ -66,12 +65,19 @@ void Main()
 
 	std::thread audioRenderThread(renderUpdate);
 
+#ifdef DEVELOPMENT
+	int32 debugDraw = MemoryPool::Size;
+#endif
+
 	while (System::Update())
 	{
+#ifdef DEVELOPMENT
 		if (KeyD.down())
 		{
 			debugDraw = (debugDraw + 1) % (MemoryPool::Size + 1);
 		}
+#endif
+
 		if (KeyM.down())
 		{
 			isMute = !isMute;
@@ -161,6 +167,7 @@ void Main()
 		player.drawVertical(pianoRoll, midiData);
 #endif
 
+#ifdef DEVELOPMENT
 		if (debugDraw < MemoryPool::Size)
 		{
 			auto& memoryPool = MemoryPool::i(static_cast<MemoryPool::Type>(debugDraw));
@@ -169,6 +176,7 @@ void Main()
 
 			memoryPool.debugDraw();
 		}
+#endif
 	}
 
 	AudioStreamRenderer::i().finish();

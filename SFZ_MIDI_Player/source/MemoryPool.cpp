@@ -16,6 +16,7 @@ void MemoryPool::setCapacity(size_t sizeOfBytes)
 		m_freeBlocks.push_back(i);
 	}
 
+#ifdef DEVELOPMENT
 	{
 		const int32 width = static_cast<int32>(Math::Round(Sqrt(blockCount)));
 		const int32 height = static_cast<int32>(Math::Ceil(1.0 * blockCount / width));
@@ -23,6 +24,8 @@ void MemoryPool::setCapacity(size_t sizeOfBytes)
 		m_debugImage = Image(width, height, Palette::Black);
 		m_debugTexture = DynamicTexture(m_debugImage);
 	}
+#endif
+
 }
 
 size_t MemoryPool::blockCount() const
@@ -40,18 +43,20 @@ void MemoryPool::sortFreeBlock(size_t beginIndex, size_t endIndex)
 	std::sort(m_freeBlocks.begin() + beginIndex, m_freeBlocks.begin() + endIndex);
 }
 
-std::pair<void*, uint32> MemoryPool::allocateBlock(size_t ownerId)
+std::pair<void*, uint32> MemoryPool::allocateBlock([[maybe_unused]] size_t ownerId)
 {
 	assert(!m_freeBlocks.empty());
 
 	const auto freeBlockIndex = *m_freeBlocks.begin();
 	m_freeBlocks.pop_front();
 
+#ifdef DEVELOPMENT
 	{
 		const auto y = static_cast<int32>(freeBlockIndex / m_debugImage.width());
 		const auto x = static_cast<int32>(freeBlockIndex % m_debugImage.width());
 		m_debugImage[y][x] = HSV(ownerId * 10.0, 1.0, 1.0 - 0.1 * ((ownerId / 36) % 5));
 	}
+#endif
 
 	auto ptr = m_buffer.data() + freeBlockIndex * UnitBlockSizeOfBytes;
 	return std::make_pair(ptr, freeBlockIndex);
@@ -59,24 +64,35 @@ std::pair<void*, uint32> MemoryPool::allocateBlock(size_t ownerId)
 
 void MemoryPool::deallocateBlock(uint32 poolId)
 {
+
+#ifdef DEVELOPMENT
 	{
 		const auto y = static_cast<int32>(poolId / m_debugImage.width());
 		const auto x = static_cast<int32>(poolId % m_debugImage.width());
 		m_debugImage[y][x] = Palette::Black;
 	}
+#endif
 
 	m_freeBlocks.push_front(poolId);
 }
 
 void MemoryPool::debugUpdate()
 {
+
+#ifdef DEVELOPMENT
 	m_debugTexture.fillIfNotBusy(m_debugImage);
+#endif
+
 }
 
 void MemoryPool::debugDraw() const
 {
+
+#ifdef DEVELOPMENT
 	const double scale = 0.8 * Min(1.0 * Scene::Height() / m_debugTexture.height(), 1.0 * Scene::Width() / m_debugTexture.width());
 
 	ScopedRenderStates2D rs(SamplerState::ClampNearest);
 	m_debugTexture.scaled(scale).drawAt(Scene::Center());
+#endif
+
 }

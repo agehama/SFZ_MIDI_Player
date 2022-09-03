@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
+#include <Config.hpp>
 
 class MemoryPool
 {
@@ -42,6 +43,8 @@ private:
 	Array<uint8> m_buffer;
 	std::deque<uint32> m_freeBlocks;
 
+#ifdef DEVELOPMENT
 	Image m_debugImage;
 	DynamicTexture m_debugTexture;
+#endif
 };
