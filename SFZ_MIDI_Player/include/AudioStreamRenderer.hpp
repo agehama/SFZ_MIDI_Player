@@ -54,3 +54,66 @@ private:
 
 	static std::mutex m_mutex;
 };
+
+class SamplerAudioStream : public IAudioStream
+{
+public:
+
+	SamplerAudioStream(PianoRoll& pianoroll, SamplePlayer& samplePlayer) :
+		m_pianoroll(pianoroll),
+		m_samplePlayer(samplePlayer)
+	{
+	}
+
+	void reset()
+	{
+		m_pos = 0;
+	}
+
+	std::reference_wrapper<PianoRoll> m_pianoroll;
+
+	std::reference_wrapper<SamplePlayer> m_samplePlayer;
+
+	std::atomic<size_t> m_pos = 0;
+
+	static double time1;
+	static double time2;
+	static double time3;
+	static double time4;
+	float volume = 1;
+
+private:
+
+	void getAudio(float* left, float* right, const size_t samplesToWrite) override;
+
+	bool hasEnded() override
+	{
+		return false;
+	}
+
+	void rewind() override
+	{
+		m_pos = 0;
+	}
+
+	Wave m_wave;
+};
+
+class AudioRenderer
+{
+public:
+
+	AudioRenderer(PianoRoll& pianoroll, SamplePlayer& samplePlayer) :
+		m_pianoroll(pianoroll),
+		m_samplePlayer(samplePlayer)
+	{
+	}
+
+	std::reference_wrapper<PianoRoll> m_pianoroll;
+
+	std::reference_wrapper<SamplePlayer> m_samplePlayer;
+
+	size_t m_pos = 0;
+
+	void getAudio(float* left, float* right, int64 startPos, int64 sampleCount);
+};

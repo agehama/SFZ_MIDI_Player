@@ -149,7 +149,12 @@ void TrackData::init()
 			case MidiEventType::ControlChange:
 				break;
 			case MidiEventType::ProgramChange:
+			{
+				// TODO: 途中でProgramChangeイベントがある場合に対応してない
+				m_channel = midiEvent.channel;
+				m_program = midiEvent.changeType;
 				break;
+			}
 			case MidiEventType::ChannelPressure:
 				break;
 			case MidiEventType::PitchBend:

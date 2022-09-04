@@ -125,6 +125,7 @@
     <ClCompile Include="source\MemoryPool.cpp" />
     <ClCompile Include="source\MIDILoader.cpp" />
     <ClCompile Include="source\PianoRoll.cpp" />
+    <ClCompile Include="source\Program.cpp" />
     <ClCompile Include="source\SamplePlayer.cpp" />
     <ClCompile Include="source\SampleSource.cpp" />
     <ClCompile Include="source\SFZLoader.cpp" />
@@ -338,6 +339,7 @@
     <ClInclude Include="include\MemoryPool.hpp" />
     <ClInclude Include="include\MIDILoader.hpp" />
     <ClInclude Include="include\PianoRoll.hpp" />
+    <ClInclude Include="include\Program.hpp" />
     <ClInclude Include="include\SamplePlayer.hpp" />
     <ClInclude Include="include\SampleSource.hpp" />
     <ClInclude Include="include\SFZLoader.hpp" />

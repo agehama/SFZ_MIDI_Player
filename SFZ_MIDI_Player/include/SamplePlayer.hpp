@@ -3,10 +3,12 @@
 
 struct SfzData;
 class PianoRoll;
+class TrackData;
 class MidiData;
 struct KeyDownEvent;
 struct NoteEvent;
 class AudioKey;
+class Program;
 
 class SamplePlayer
 {
@@ -18,7 +20,7 @@ public:
 		m_area(area)
 	{}
 
-	void loadData(const SfzData& sfzData);
+	void loadSoundSet(FilePathView soundSetTomlPath);
 
 	int octaveCount() const;
 	double octaveHeight() const;
@@ -38,21 +40,18 @@ public:
 
 	void drawHorizontal(const PianoRoll& pianoroll, const Optional<MidiData>& midiData) const;
 
-	const NoteEvent& addEvent(uint8 key, uint8 velocity, int64 pressTimePos, int64 releaseTimePos, const Array<KeyDownEvent>& history);
-
-	void sortEvent();
-
-	void deleteDuplicate();
+	Array<std::pair<uint8, NoteEvent>> loadMidiData(const MidiData& midiData);
 
 	void getSamples(float* left, float* right, int64 startPos, int64 sampleCount);
 
-	void clearEvent();
-
-	Array<std::pair<uint8, NoteEvent>> addEvents(const MidiData& midiData);
-
 private:
 
-	Array<AudioKey> m_audioKeys;
+	Program* refProgram(const TrackData& trackData);
+
+	Array<Program> m_soundSet;
+	Array<Program> m_drumKit;
+
+	Array<uint8> m_programChangeNumberToSoundSetIndex;
 
 	RectF m_area;
 
@@ -61,67 +60,4 @@ private:
 	// [-1, 9]
 	int m_octaveMin = 1;
 	int m_octaveMax = 7;
-};
-
-class SamplerAudioStream : public IAudioStream
-{
-public:
-
-	SamplerAudioStream(PianoRoll& pianoroll, SamplePlayer& samplePlayer) :
-		m_pianoroll(pianoroll),
-		m_samplePlayer(samplePlayer)
-	{
-	}
-
-	void reset()
-	{
-		m_pos = 0;
-	}
-
-	std::reference_wrapper<PianoRoll> m_pianoroll;
-
-	std::reference_wrapper<SamplePlayer> m_samplePlayer;
-
-	std::atomic<size_t> m_pos = 0;
-
-	static double time1;
-	static double time2;
-	static double time3;
-	static double time4;
-	float volume = 1;
-
-private:
-
-	void getAudio(float* left, float* right, const size_t samplesToWrite) override;
-
-	bool hasEnded() override
-	{
-		return false;
-	}
-
-	void rewind() override
-	{
-		m_pos = 0;
-	}
-
-	Wave m_wave;
-};
-
-class AudioRenderer
-{
-public:
-
-	AudioRenderer(PianoRoll& pianoroll, SamplePlayer& samplePlayer) :
-		m_pianoroll(pianoroll),
-		m_samplePlayer(samplePlayer)
-	{
-	}
-
-	std::reference_wrapper<PianoRoll> m_pianoroll;
-
-	std::reference_wrapper<SamplePlayer> m_samplePlayer;
-
-	size_t m_pos = 0;
-
-	void getAudio(float* left, float* right, int64 startPos, int64 sampleCount);
 };

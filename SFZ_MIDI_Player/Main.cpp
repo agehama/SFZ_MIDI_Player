@@ -9,11 +9,13 @@
 #include <AudioLoadManager.hpp>
 #include <MemoryPool.hpp>
 #include <AudioStreamRenderer.hpp>
+#include <Program.hpp>
 
 #ifndef DEBUG_MODE
 
 void Main()
 {
+
 #ifdef LAYOUT_HORIZONTAL
 	Window::Resize(1280, 720);
 	const auto [pianorollArea, keyboardArea] = SplitUpDown(Scene::Rect(), 0.8);
@@ -22,13 +24,16 @@ void Main()
 	const auto [keyboardArea, pianorollArea] = SplitLeftRight(Scene::Rect(), 0.1);
 #endif
 
+#ifdef DEVELOPMENT
+	int32 debugDraw = MemoryPool::Size;
+	Console << U"";
+#endif
+
 	MemoryPool::i(MemoryPool::ReadFile).setCapacity(16ull << 20);
 	MemoryPool::i(MemoryPool::RenderAudio).setCapacity(4ull << 20);
 
-	const auto data = LoadSfz(U"sound/Grand Piano, Kawai.sfz");
-
 	SamplePlayer player{ keyboardArea };
-	player.loadData(data);
+	player.loadSoundSet(U"default.toml");
 
 	PianoRoll pianoRoll{ pianorollArea };
 
@@ -65,12 +70,9 @@ void Main()
 
 	std::thread audioRenderThread(renderUpdate);
 
-#ifdef DEVELOPMENT
-	int32 debugDraw = MemoryPool::Size;
-#endif
-
 	while (System::Update())
 	{
+
 #ifdef DEVELOPMENT
 		if (KeyD.down())
 		{
@@ -96,14 +98,14 @@ void Main()
 				audioStream->reset();
 
 				midiData = LoadMidi(filepath.path);
-				player.addEvents(midiData.value());
+				player.loadMidiData(midiData.value());
 				renderer.playRestart();
 				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 				pianoRoll.playRestart();
 				audio.play();
 			}
-			else if (U"sfz" == FileSystem::Extension(filepath.path))
+			else if (U"toml" == FileSystem::Extension(filepath.path))
 			{
 				const bool isPlaying = pianoRoll.isPlaying();
 				if (isPlaying)
@@ -112,10 +114,10 @@ void Main()
 					pianoRoll.pause();
 				}
 
-				player.loadData(LoadSfz(filepath.path));
+				player.loadSoundSet(filepath.path);
 				if (midiData)
 				{
-					player.addEvents(midiData.value());
+					player.loadMidiData(midiData.value());
 				}
 				renderer.clearBuffer();
 				std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -177,6 +179,7 @@ void Main()
 			memoryPool.debugDraw();
 		}
 #endif
+
 	}
 
 	AudioStreamRenderer::i().finish();
