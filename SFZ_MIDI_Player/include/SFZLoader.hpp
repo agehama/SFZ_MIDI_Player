@@ -29,8 +29,8 @@ struct RegionSetting
 	Trigger trigger = Trigger::Attack;
 
 	// group番号は1以上（0はグループに所属しない）
-	uint32 group = 0;
-	uint32 off_by = 0;
+	int32 group = 0;
+	int32 off_by = 0;
 	OffMode off_mode = OffMode::Fast;
 	float off_time = 0.006f;
 

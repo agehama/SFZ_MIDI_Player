@@ -16,7 +16,7 @@ struct RiffChunk
 WaveLoader::WaveLoader(FilePathView path, size_t debugId) :
 	m_waveReader(path),
 	m_filePath(path),
-	m_readBlocks(debugId)
+	m_readBlocks(debugId, MemoryPool::ReadFile)
 {
 	init();
 	m_waveReader.close();
@@ -92,72 +92,43 @@ void WaveLoader::init()
 
 	m_lengthSample = m_dataSizeOfBytes / m_format.blockAlign;
 	m_sampleRate = m_format.samplePerSecond;
+	m_sampleRateInv = 1.f / m_sampleRate;
 	m_normalize = 1.f / 32767.0f;
 }
 
-void WaveLoader::use()
+void WaveLoader::use(size_t beginSampleIndex, size_t sampleCount)
 {
-	m_unuseCount = 0;
-
-	if (m_use)
+	if (!m_waveReader.isOpen())
 	{
-		return;
+		m_waveReader.open(m_filePath);
 	}
 
-	m_mutex.lock();
-
-	{
-		m_loadSampleCount = 0;
-
-		if (!m_waveReader.isOpen())
-		{
-			m_waveReader.open(m_filePath);
-		}
-
-		if (m_waveReader.getPos() != m_dataBeginPos)
-		{
-			m_waveReader.setPos(m_dataBeginPos);
-		}
-
-		readBlock();
-
-		m_use = true;
-	}
-
-	m_mutex.unlock();
+	readBlock(beginSampleIndex, sampleCount);
 }
 
-void WaveLoader::unuse()
+void WaveLoader::markUnused()
 {
-	m_use = false;
-	m_waveReader.close();
+	m_readBlocks.markUnused();
+	m_indexCache.clear();
 }
 
-void WaveLoader::update()
+void WaveLoader::freeUnusedBlocks()
 {
-	m_mutex.lock();
-
-	++m_unuseCount;
-	if (m_use && 5 < m_unuseCount)
-	{
-		unuse();
-	}
-
-	if (m_use)
-	{
-		readBlock();
-	}
-	else
-	{
-		m_readBlocks.deallocate();
-		m_loadSampleCount = 0;
-	}
-
-	m_mutex.unlock();
+	m_readBlocks.freeUnusedBlocks();
 }
 
 WaveSample WaveLoader::getSample(int64 index) const
 {
+	for (const auto& cache : m_indexCache)
+	{
+		const auto relativeIndex = index - cache.sampleIndexBegin;
+		if (0 <= relativeIndex && relativeIndex < MemoryPool::UnitBlockSampleLength)
+		{
+			const auto pSample = std::bit_cast<Sample16bit2ch*>(cache.ptr + relativeIndex * m_format.blockAlign);
+			return WaveSample(pSample->left * m_normalize, pSample->right * m_normalize);
+		}
+	}
+
 	if (m_format.channels == 1)
 	{
 		if (m_format.bitsPerSample == 8)
@@ -183,44 +154,73 @@ WaveSample WaveLoader::getSample(int64 index) const
 		}
 		else// if (m_format.bitsPerSample == 16)
 		{
+			//*
+			const auto blockIndex = static_cast<uint32>((index * m_format.blockAlign / MemoryPool::UnitBlockSizeOfBytes));
+			const auto beginSampleIndex = blockIndex * MemoryPool::UnitBlockSizeOfBytes / m_format.blockAlign;
+
+			auto ptr = m_readBlocks.getBlock(blockIndex);
+
+			m_indexCache.push_back(BlockIndexCache{ beginSampleIndex, ptr });
+
+			const auto pSample = std::bit_cast<Sample16bit2ch*>(ptr + (index - beginSampleIndex) * m_format.blockAlign);
+			return WaveSample(pSample->left * m_normalize, pSample->right * m_normalize);
+
+			/*/
+
 			auto [ptr, actualReadBytes] = m_readBlocks.getWriteBuffer(index * m_format.blockAlign, sizeof(Sample16bit2ch));
 			const auto pSample = std::bit_cast<Sample16bit2ch*>(ptr);
 			return WaveSample(pSample->left * m_normalize, pSample->right * m_normalize);
+
+			//*/
 		}
 	}
 }
 
-void WaveLoader::readBlock()
+void WaveLoader::readBlock(size_t beginSample, size_t sampleCount)
 {
-	size_t readCount = 2048;
-	if (m_lengthSample <= m_loadSampleCount + readCount)
+	size_t readCount = sampleCount;
+
+	if (m_lengthSample <= beginSample)
 	{
-		readCount = m_lengthSample - m_loadSampleCount;
+		readCount = 0;
+	}
+	else if (m_lengthSample <= beginSample + readCount)
+	{
+		readCount = m_lengthSample - beginSample;
 	}
 
 	if (1 <= readCount)
 	{
-		size_t readHead = m_loadSampleCount * m_format.blockAlign;
+		size_t readHead = beginSample * m_format.blockAlign;
 		size_t requiredReadBytes = readCount * m_format.blockAlign;
 
 		{
 			const size_t allocateBegin = (readHead / MemoryPool::UnitBlockSizeOfBytes) * MemoryPool::UnitBlockSizeOfBytes;
 			const size_t allocateEnd = readHead + requiredReadBytes;
 
-			m_readBlocks.allocate(allocateBegin, allocateEnd - allocateBegin);
+			const auto [beginBlock, endBlock] = m_readBlocks.blockIndexRange(allocateBegin, allocateEnd - allocateBegin);
+			for (uint32 blockIndex = beginBlock; blockIndex <= endBlock; ++blockIndex)
+			{
+				if (m_readBlocks.isAllocatedBlock(blockIndex))
+				{
+					m_readBlocks.use(blockIndex);
+				}
+				else
+				{
+					const auto currentReadPos = static_cast<int64>(blockIndex * MemoryPool::UnitBlockSizeOfBytes);
+					m_readBlocks.allocateSingleBlock(blockIndex);
+
+					auto ptr = m_readBlocks.getBlock(blockIndex);
+
+					if (m_waveReader.getPos() != m_dataBeginPos + currentReadPos)
+					{
+						m_waveReader.setPos(m_dataBeginPos + currentReadPos);
+					}
+
+					const auto readBytes = Min(MemoryPool::UnitBlockSizeOfBytes, m_dataSizeOfBytes - currentReadPos);
+					m_waveReader.read(ptr, readBytes);
+				}
+			}
 		}
-
-		while (1 <= requiredReadBytes)
-		{
-			auto [ptr, actualReadBytes] = m_readBlocks.getWriteBuffer(readHead, requiredReadBytes);
-			readHead += actualReadBytes;
-			requiredReadBytes -= actualReadBytes;
-
-			m_waveReader.read(ptr, actualReadBytes);
-		}
-
-		m_loadSampleCount += readCount;
 	}
 }
-
-std::mutex WaveLoader::m_mutex;

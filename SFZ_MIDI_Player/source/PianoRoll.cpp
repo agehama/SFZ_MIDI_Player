@@ -67,7 +67,7 @@ void PianoRoll::drawVertical(int keyMin, int keyMax, const Optional<MidiData>& m
 			const HSV hsv(360.0 * i / 16.0, 0.5, 0.53);
 			const HSV darker(hsv.h, hsv.s, hsv.v * 0.5);
 
-			if (i == 10)
+			if (track.isPercussionTrack())
 			{
 				continue;
 			}
@@ -161,7 +161,7 @@ void PianoRoll::drawHorizontal(int keyMin, int keyMax, const Optional<MidiData>&
 			const HSV hsv(360.0 * i / 16.0, 0.5, 0.53);
 			const HSV darker(hsv.h, hsv.s, hsv.v * 0.5);
 
-			if (i == 10)
+			if (track.isPercussionTrack())
 			{
 				continue;
 			}

@@ -1,6 +1,10 @@
 ﻿#pragma once
+#include <Config.hpp>
 #include <AudioLoadManager.hpp>
 #include <SampleSource.hpp>
+#include <SamplePlayer.hpp>
+#include <AudioStreamRenderer.hpp>
+#include <Program.hpp>
 
 double Envelope::level(double noteOnTime, double noteOffTime, double time) const
 {
@@ -43,6 +47,15 @@ double Envelope::level(double noteOnTime, double noteOffTime, double time) const
 
 	return m_sustainLevel;
 }
+
+AudioSource::AudioSource(float amplitude, const Envelope& envelope, uint8 lovel, uint8 hivel, int32 tune) :
+	m_amplitude(amplitude),
+	m_lovel(lovel),
+	m_hivel(hivel),
+	m_tune(tune),
+	m_speed(static_cast<float>(std::exp2(m_tune / 1200.0))),
+	m_envelope(envelope)
+{}
 
 void AudioSource::setOscillator(OscillatorType oscillatorType, float frequency)
 {
@@ -101,14 +114,13 @@ size_t AudioSource::lengthSample() const
 
 	const auto& sourceWave = getReader();
 
-	const double speed = std::exp2(m_tune / 1200.0);
-	const double scale = 1.0 / speed;
+	const float scale = 1.0f / m_speed;
 	const auto sampleCount = static_cast<size_t>(Math::Ceil(sourceWave.lengthSample() * scale));
 
 	return sampleCount;
 }
 
-double TriangleWave(double t, int n)
+inline double TriangleWave(double t, int n)
 {
 	double f = 0;
 	for (int i = 1; i < n; ++i)
@@ -121,7 +133,7 @@ double TriangleWave(double t, int n)
 	return 8.0 * f / 1_pi;
 }
 
-double SawtoothWave(double t, int n)
+inline double SawtoothWave(double t, int n)
 {
 	double f = 0;
 	for (int i = 1; i < n; ++i)
@@ -133,7 +145,7 @@ double SawtoothWave(double t, int n)
 	return 2.0 * f / 1_pi;
 }
 
-double SquareWave(double t, int n)
+inline double SquareWave(double t, int n)
 {
 	double f = 0;
 	for (int i = 1; i < n; ++i)
@@ -143,6 +155,17 @@ double SquareWave(double t, int n)
 	}
 
 	return 4.0 * f / 1_pi;
+}
+
+// https://www.dsprelated.com/showcode/60.php
+inline float PowerOf10(float x)
+{
+	return std::bit_cast<float>(static_cast<int32>(x * 27866352.6f + 1064866808.0f));
+}
+
+float AudioSource::getSpeed() const
+{
+	return m_speed;
 }
 
 WaveSample AudioSource::getSample(int64 index) const
@@ -189,9 +212,9 @@ WaveSample AudioSource::getSample(int64 index) const
 	float amplitude = m_amplitude;
 	if (m_rtDecay)
 	{
-		const double seconds = 1.0 * index / sourceWave.sampleRate();
-		const double currentVolume = -seconds * m_rtDecay.value();
-		const float scale = static_cast<float>(std::pow(10.0, currentVolume / 20.0) * 0.5);
+		const float seconds = static_cast<float>(index) * sourceWave.sampleRateInv();
+		const float currentVolume = -seconds * m_rtDecay.value();
+		const float scale = PowerOf10(currentVolume * 0.05f) * 0.5f;
 		amplitude *= scale;
 	}
 
@@ -200,29 +223,19 @@ WaveSample AudioSource::getSample(int64 index) const
 		return sourceWave.getSample(index) * amplitude;
 	}
 
-	const double speed = std::exp2(m_tune / 1200.0);
-
-	const double readIndex = index * speed;
+	const float readIndex = index * m_speed;
 	const auto prevIndex = static_cast<int64>(Floor(readIndex));
-	const auto nextIndex = Min(static_cast<int64>(Ceil(readIndex)), static_cast<int64>(sourceWave.size() - 1));
-	const double t = Math::Fmod(readIndex, 1.0);
+	const auto nextIndex = Min(prevIndex + 1, static_cast<int64>(sourceWave.size() - 1));
+	const float t = readIndex - prevIndex;
 
 	return sourceWave.getSample(prevIndex).lerp(sourceWave.getSample(nextIndex), t) * amplitude;
 }
 
-void AudioSource::use()
+void AudioSource::use(size_t beginSampleIndex, size_t sampleCount)
 {
 	if (!isOscillator())
 	{
-		getReader().use();
-	}
-}
-
-void AudioSource::unuse()
-{
-	if (!isOscillator())
-	{
-		getReader().unuse();
+		getReader().use(beginSampleIndex, sampleCount);
 	}
 }
 
@@ -346,41 +359,66 @@ void AudioKey::deleteDuplicate()
 
 void AudioKey::getSamples(float* left, float* right, int64 startPos, int64 sampleCount)
 {
-	//const double lengthOfTime = 1.0 * sampleCount / Wave::DefaultSampleRate;
-
-	//const double startTime = 1.0 * startPos / Wave::DefaultSampleRate;
-	//const double endTime = 1.0 * (startPos + sampleCount) / Wave::DefaultSampleRate;
-
-	NoteEvent note0(0, 0, 0, 0, 0);
-	note0.pressTimePos = startPos;
-	auto itNextStart = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), note0, [](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
-	const int64 nextStartIndex = std::distance(m_noteEvents.begin(), itNextStart);
-	int64 startIndex = nextStartIndex - 1;
-
-	if (m_noteEvents.empty())
 	{
-		return;
+		NoteEvent note0(0, 0, 0, 0, 0);
+		note0.pressTimePos = startPos;
+		auto itNextStart = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), note0, [](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
+		const int64 nextStartIndex = std::distance(m_noteEvents.begin(), itNextStart);
+		int64 startIndex = nextStartIndex - 1;
+
+		if (m_noteEvents.empty())
+		{
+			return;
+		}
+
+		NoteEvent note1(0, 0, 0, 0, 0);
+		note1.pressTimePos = startPos + sampleCount;
+		auto itNextEnd = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), note1, [](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
+		const int64 nextEndIndex = std::distance(m_noteEvents.begin(), itNextEnd);
+
+		if (startIndex < 0)
+		{
+			startIndex = 0;
+		}
+
+		for (int64 noteIndex = startIndex; noteIndex < nextEndIndex; ++noteIndex)
+		{
+			render(left, right, startPos, sampleCount, noteIndex);
+		}
 	}
 
-	NoteEvent note1(0, 0, 0, 0, 0);
-	note1.pressTimePos = startPos + sampleCount;
-	auto itNextEnd = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), note1, [](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
-	const int64 nextEndIndex = std::distance(m_noteEvents.begin(), itNextEnd);
-
-	if (startIndex < 0)
+	if (!releaseKeys.empty())
 	{
-		startIndex = 0;
-	}
+		auto maxReleaseTimeIt = std::max_element(releaseKeys.begin(), releaseKeys.end(),
+			[](const AudioSource& a, const AudioSource& b) { return a.envelope().releaseTime() < b.envelope().releaseTime(); });
 
-	for (int64 noteIndex = startIndex; noteIndex < nextEndIndex; ++noteIndex)
-	{
-		render(left, right, startPos, sampleCount, noteIndex);
-	}
+		const auto maxReleaseCount = static_cast<int64>(maxReleaseTimeIt->envelope().releaseTime() * Wave::DefaultSampleRate);
 
-	// todo: 必要なインデックスだけ見るようにする
-	for (int64 noteIndex = 0; noteIndex < static_cast<int64>(m_noteEvents.size()); ++noteIndex)
-	{
-		renderRelease(left, right, startPos, sampleCount, noteIndex);
+		NoteEvent note0(0, 0, 0, 0, 0);
+		note0.pressTimePos = startPos - maxReleaseCount;
+		auto itNextStart = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), note0, [](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
+		const int64 nextStartIndex = std::distance(m_noteEvents.begin(), itNextStart);
+		int64 startIndex = nextStartIndex - 1;
+
+		if (m_noteEvents.empty())
+		{
+			return;
+		}
+
+		NoteEvent note1(0, 0, 0, 0, 0);
+		note1.pressTimePos = startPos + sampleCount;
+		auto itNextEnd = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), note1, [](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
+		const int64 nextEndIndex = std::distance(m_noteEvents.begin(), itNextEnd);
+
+		if (startIndex < 0)
+		{
+			startIndex = 0;
+		}
+
+		for (int64 noteIndex = startIndex; noteIndex < nextEndIndex; ++noteIndex)
+		{
+			renderRelease(left, right, startPos, sampleCount, noteIndex);
+		}
 	}
 }
 
@@ -397,46 +435,57 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 
 	const auto& envelope = attackKey.envelope();
 
-	//const auto waveStartPos = Max(0ll, startPos - targetEvent.pressTimePos);
-	//const auto maxGateSamples = noteIndex + 1 < m_noteEvents.size() ? m_noteEvents[noteIndex + 1].pressTimePos - targetEvent.pressTimePos : static_cast<int64>(sourceWave.lengthSample());
-
-	//const auto startIndex = static_cast<int64>(Math::Round(waveStartTime * sourceWave.sampleRate()));
-	//const auto maxReadCount = static_cast<int64>(fetchTime * m_source.sampleRate());
-	//const auto maxReadCount = static_cast<int64>(Min({ m_source.lengthSec(), maxGateTime }) * m_source.sampleRate());
-
-	//const auto overReadCount = static_cast<int64>(Math::Round(maxGateTime * sourceWave.sampleRate()));
-	//const auto maxReadCount = Min(static_cast<int64>(sourceWave.lengthSample()), overReadCount);
-	//const auto endIndex = startIndex + maxReadCount;
-
 	const int64 prevWriteIndexHead = getWriteIndexHead(startPos, noteIndex - 1);
 	const int64 writeIndexHead = getWriteIndexHead(startPos, noteIndex);
 
-	//const auto skipReadIndex = Max(0ll, startPos - targetEvent.pressTimePos);
-
-	//const auto maxWriteCount = sampleCount - writeIndexHead;
-	//const auto sampleReadCount = Min(maxWriteCount, maxReadCount);
-	//const auto sampleEmptyCount = Min(maxWriteCount, overReadCount);
 	const auto [sampleReadCount, sampleEmptyCount] = readEmptyCount(startPos, sampleCount, noteIndex);
 
-	/*Console << noteIndex << U"[" << noteKey << U"]v" << targetEvent.index << U" -> "
-		<< Point(targetEvent.pressTimePos, targetEvent.releaseTimePos)
-		<< U", readStart: " << waveStartPos
-		<< U", maxReadCount: " << maxGateSamples
-		<< U", writeStart: " << writeIndexHead
-		<< U", maxWriteCount: " << maxWriteCount
-		<< U", sampleReadCount: " << sampleReadCount
-		<< U", sampleEmptyCount: " << sampleEmptyCount;*/
-
-		//Console << Vec2(targetEvent.pressTimePos, targetEvent.releaseTimePos);
-
 	const double currentVolume = targetEvent.velocity / 127.0;
-
 	const int64 prevWriteCount = writeIndexHead - prevWriteIndexHead;
-	for (int64 i = Max(0ll, -writeIndexHead), j = 0; i < sampleReadCount; ++i, ++j)
+
+#ifdef DEVELOPMENT
+	Stopwatch watch(StartImmediately::Yes);
+#endif
+
+	if (Max(0ll, -writeIndexHead) < sampleReadCount)
 	{
-		//const int64 readIndex = startIndex + i;
+		const double startTime = 1.0 * startPos / attackKey.sampleRate();
+		if (startTime < 1.0 * targetEvent.pressTimePos / attackKey.sampleRate() + envelope.noteTime(targetEvent))
+		{
+			const auto speed = attackKey.getSpeed();
+			const auto samples = static_cast<size_t>((sampleCount + 10) * speed);
+			const auto sampleBegin = static_cast<size_t>(Max(0ll, -writeIndexHead) * speed);
+			attackKey.use(sampleBegin, samples);
+
+			const auto blendIndex = startPos - targetEvent.pressTimePos;
+			if (1 <= noteIndex && blendIndex < BlendSampleCount)
+			{
+				const auto& prevEvent = m_noteEvents[noteIndex - 1];
+				auto& prevAttackKey = attackKeys[prevEvent.attackIndex];
+
+				if (startTime < 1.0 * prevEvent.pressTimePos / attackKey.sampleRate() + prevAttackKey.envelope().noteTime(prevEvent))
+				{
+					const auto [prevReadCount, prevEmptyCount] = readEmptyCount(startPos, sampleCount, noteIndex - 1);
+
+					{
+						const auto prevSpeed = prevAttackKey.getSpeed();
+						const auto prevSamples = static_cast<size_t>((BlendSampleCount + 10) * prevSpeed);
+						const auto prevSampleBegin = static_cast<size_t>(Max(0ll, prevWriteCount - writeIndexHead) * prevSpeed);
+						prevAttackKey.use(prevSampleBegin, prevSamples);
+					}
+				}
+			}
+		}
+	}
+
+#ifdef DEVELOPMENT
+	SamplerAudioStream::time1 += watch.usF();
+	watch.restart();
+#endif
+
+	for (int64 i = Max(0ll, -writeIndexHead), j = 0; i < sampleReadCount && j < sampleCount; ++i, ++j)
+	{
 		const int64 readIndex = i;
-		//const int64 readIndex = startIndex + j;
 		const int64 writeIndex = writeIndexHead + i;
 		const double time = 1.0 * (startPos + writeIndex) / attackKey.sampleRate();
 
@@ -448,7 +497,6 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 			if (disableTimePos < currentTimePos)
 			{
 				const auto disableTime = 1.0 * (currentTimePos - disableTimePos) / attackKey.sampleRate();
-
 				disableCoeff = 1.0 - Saturate(disableTime / attackKey.disableFadeSeconds());
 			}
 		}
@@ -460,8 +508,6 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 			break;
 		}
 
-		attackKey.use();
-
 		bool isBlendSample = false;
 
 		const auto blendIndex = (startPos + writeIndex) - targetEvent.pressTimePos;
@@ -472,7 +518,6 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 
 			if (time < 1.0 * prevEvent.pressTimePos / attackKey.sampleRate() + prevAttackKey.envelope().noteTime(prevEvent))
 			{
-				prevAttackKey.use();
 				const auto [prevReadCount, prevEmptyCount] = readEmptyCount(startPos, sampleCount, noteIndex - 1);
 
 				const double prevVolume = prevEvent.velocity / 127.0;
@@ -498,6 +543,10 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 			right[writeIndex] += sample1.right;
 		}
 	}
+
+#ifdef DEVELOPMENT
+	SamplerAudioStream::time2 += watch.usF();
+#endif
 }
 
 void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sampleCount, int64 noteIndex)
@@ -509,14 +558,30 @@ void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sa
 		return;
 	}
 
+#ifdef DEVELOPMENT
+	Stopwatch watch(StartImmediately::Yes);
+#endif
+
 	auto& releaseKey = releaseKeys[targetEvent.releaseIndex];
 
 	const int64 writeIndexHead = getWriteIndexHeadRelease(startPos, noteIndex);
 	const int64 sampleReadCount = readCountRelease(startPos, sampleCount, noteIndex);
 
-	for (int64 i = Max(0ll, -writeIndexHead), j = 0; i < sampleReadCount; ++i, ++j)
+	if (Max(0ll, -writeIndexHead) < sampleReadCount)
 	{
-		releaseKey.use();
+		const auto speed = releaseKey.getSpeed();
+		const auto samples = static_cast<size_t>((sampleCount + 10) * speed);
+		const auto sampleBegin = static_cast<size_t>(Max(0ll, -writeIndexHead) * speed);
+		releaseKey.use(sampleBegin, samples);
+	}
+
+#ifdef DEVELOPMENT
+	SamplerAudioStream::time3 += watch.usF();
+	watch.restart();
+#endif
+
+	for (int64 i = Max(0ll, -writeIndexHead), j = 0; i < sampleReadCount && j < sampleCount; ++i, ++j)
+	{
 		const int64 readIndex = i;
 		const int64 writeIndex = writeIndexHead + i;
 
@@ -524,6 +589,10 @@ void AudioKey::renderRelease(float* left, float* right, int64 startPos, int64 sa
 		left[writeIndex] += sample1.left;
 		right[writeIndex] += sample1.right;
 	}
+
+#ifdef DEVELOPMENT
+	SamplerAudioStream::time4 += watch.usF();
+#endif
 }
 
 int64 AudioKey::getWriteIndexHead(int64 startPos, int64 noteIndex) const

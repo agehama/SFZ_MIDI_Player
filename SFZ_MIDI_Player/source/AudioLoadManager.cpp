@@ -34,20 +34,19 @@ size_t AudioLoadManager::load(FilePathView path)
 	return i;
 }
 
-void AudioLoadManager::update()
+void AudioLoadManager::markBlocks()
 {
 	for (auto& reader : m_waveReaders)
 	{
-		reader->update();
+		reader->markUnused();
 	}
+}
 
-	// 長時間起動したときのキャッシュ効率の低下を防ぐために空きブロックを少しずつソートする
+void AudioLoadManager::freeUnusedBlocks()
+{
+	for (auto& reader : m_waveReaders)
 	{
-		auto& memoryPool = MemoryPool::i();
-		const size_t unitSortCount = 8192;//400[us]くらい
-		const size_t blockCount = memoryPool.freeBlockCount();
-		auto sortBegin = Random(0ull, blockCount - unitSortCount);
-		memoryPool.sortFreeBlock(sortBegin, sortBegin + unitSortCount);
+		reader->freeUnusedBlocks();
 	}
 }
 
@@ -59,4 +58,13 @@ const AudioLoaderBase& AudioLoadManager::reader(size_t index) const
 AudioLoaderBase& AudioLoadManager::reader(size_t index)
 {
 	return *m_waveReaders[index];
+}
+
+void AudioLoadManager::debugLog([[maybe_unused]] const String& str)
+{
+
+#ifdef DEVELOPMENT
+	m_debugLog << str;
+#endif
+
 }

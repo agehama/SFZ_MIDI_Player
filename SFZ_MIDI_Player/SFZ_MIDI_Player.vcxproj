@@ -119,11 +119,13 @@
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="source\AudioLoadManager.cpp" />
+    <ClCompile Include="source\AudioStreamRenderer.cpp" />
     <ClCompile Include="source\FlacLoader.cpp" />
     <ClCompile Include="source\MemoryBlockList.cpp" />
     <ClCompile Include="source\MemoryPool.cpp" />
     <ClCompile Include="source\MIDILoader.cpp" />
     <ClCompile Include="source\PianoRoll.cpp" />
+    <ClCompile Include="source\Program.cpp" />
     <ClCompile Include="source\SamplePlayer.cpp" />
     <ClCompile Include="source\SampleSource.cpp" />
     <ClCompile Include="source\SFZLoader.cpp" />
@@ -330,11 +332,14 @@
     <ClInclude Include="include\Animation.hpp" />
     <ClInclude Include="include\AudioLoaderBase.hpp" />
     <ClInclude Include="include\AudioLoadManager.hpp" />
+    <ClInclude Include="include\AudioStreamRenderer.hpp" />
+    <ClInclude Include="include\Config.hpp" />
     <ClInclude Include="include\FlacLoader.hpp" />
     <ClInclude Include="include\MemoryBlockList.hpp" />
     <ClInclude Include="include\MemoryPool.hpp" />
     <ClInclude Include="include\MIDILoader.hpp" />
     <ClInclude Include="include\PianoRoll.hpp" />
+    <ClInclude Include="include\Program.hpp" />
     <ClInclude Include="include\SamplePlayer.hpp" />
     <ClInclude Include="include\SampleSource.hpp" />
     <ClInclude Include="include\SFZLoader.hpp" />

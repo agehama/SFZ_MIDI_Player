@@ -72,19 +72,19 @@ namespace
 
 		if (polyphony == U"legato_high")
 		{
-			return std::make_pair(PolyphonyType::LegatoHigh, 1);
+			return std::make_pair<PolyphonyType, uint8>(PolyphonyType::LegatoHigh, 1);
 		}
 		else if (polyphony == U"legato_last")
 		{
-			return std::make_pair(PolyphonyType::LegatoLast, 1);
+			return std::make_pair<PolyphonyType, uint8>(PolyphonyType::LegatoLast, 1);
 		}
 		else if (polyphony == U"legato_low")
 		{
-			return std::make_pair(PolyphonyType::LegatoLow, 1);
+			return std::make_pair<PolyphonyType, uint8>(PolyphonyType::LegatoLow, 1);
 		}
 
 		assert(false);
-		return std::make_pair(PolyphonyType::None, 0);
+		return std::make_pair<PolyphonyType, uint8>(PolyphonyType::None, 0);
 	}
 
 	Optional<uint8> ParseMidiKey(StringView str)
@@ -313,6 +313,9 @@ SfzData LoadSfz(FilePathView sfzPath)
 	HashTable<String, String> macroDefinitions;
 	const auto text = Preprocess(RemoveComment(sfzReader.readAll()), parentDirectory, macroDefinitions);
 
+	TextWriter writer(U"debug/preprocessed.txt");
+	writer << text;
+
 	Array<RegionSetting> settings;
 	RegionSetting group;
 	Optional<RegionSetting> region;
@@ -371,7 +374,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 		}
 		else if (token.starts_with(keyGroup))
 		{
-			(region ? region.value() : group).group = ParseInt<uint32>(token.substr(keyGroup.length()));
+			(region ? region.value() : group).group = ParseInt<int32>(token.substr(keyGroup.length()));
 		}
 		else if (token.starts_with(keyPolyphony))
 		{
@@ -381,7 +384,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 		}
 		else if (token.starts_with(keyOffBy))
 		{
-			(region ? region.value() : group).off_by = ParseInt<uint32>(token.substr(keyOffBy.length()));
+			(region ? region.value() : group).off_by = ParseInt<int32>(token.substr(keyOffBy.length()));
 		}
 		else if (token.starts_with(keyOffMode))
 		{
