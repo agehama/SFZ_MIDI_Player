@@ -239,6 +239,12 @@ public:
 
 	void outputLog(TextWriter& writer) const;
 
+	uint8 channel() const { return m_channel; }
+
+	uint8 program() const { return m_program; }
+
+	bool isPercussionTrack() const { return m_channel == 9; }
+
 private:
 
 	friend class MidiData;
@@ -246,6 +252,9 @@ private:
 	Array<Note> m_notes;
 
 	Array<MidiCode> m_operations;
+
+	uint8 m_channel = 0;
+	uint8 m_program = 0;
 };
 
 struct Beat

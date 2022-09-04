@@ -257,7 +257,7 @@ void SamplePlayer::drawVertical(const PianoRoll& pianoroll, const Optional<MidiD
 		const auto& tracks = midiDataOpt.value().notes();
 		for (const auto& [i, track] : Indexed(tracks))
 		{
-			if (i == 10)
+			if (track.isPercussionTrack())
 			{
 				continue;
 			}
@@ -358,7 +358,7 @@ void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const Optional<Mid
 		const auto& tracks = midiDataOpt.value().notes();
 		for (const auto& [i, track] : Indexed(tracks))
 		{
-			if (i == 10)
+			if (track.isPercussionTrack())
 			{
 				continue;
 			}
@@ -502,8 +502,14 @@ Array<std::pair<uint8, NoteEvent>> SamplePlayer::addEvents(const MidiData& midiD
 	const auto tracks = midiData.notes();
 
 	Array<KeyDownEvent> keyDownEvents;
+
 	for (const auto& [i, track] : Indexed(tracks))
 	{
+		if (track.isPercussionTrack())
+		{
+			continue;
+		}
+
 		if (track.notes().empty())
 		{
 			continue;
@@ -518,12 +524,14 @@ Array<std::pair<uint8, NoteEvent>> SamplePlayer::addEvents(const MidiData& midiD
 			keyDownEvents.emplace_back(note.key, pressTimePos, note.velocity);
 		}
 	}
+
 	keyDownEvents.sort_by([](const KeyDownEvent& a, const KeyDownEvent& b) { return a.pressTimePos < b.pressTimePos; });
 
 	Array<std::pair<uint8, NoteEvent>> results;
+
 	for (const auto& [i, track] : Indexed(tracks))
 	{
-		if (i == 10)
+		if (track.isPercussionTrack())
 		{
 			continue;
 		}

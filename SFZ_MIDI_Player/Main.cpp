@@ -14,6 +14,7 @@
 
 void Main()
 {
+
 #ifdef LAYOUT_HORIZONTAL
 	Window::Resize(1280, 720);
 	const auto [pianorollArea, keyboardArea] = SplitUpDown(Scene::Rect(), 0.8);
@@ -67,10 +68,12 @@ void Main()
 
 #ifdef DEVELOPMENT
 	int32 debugDraw = MemoryPool::Size;
+	Console << U"";
 #endif
 
 	while (System::Update())
 	{
+
 #ifdef DEVELOPMENT
 		if (KeyD.down())
 		{
@@ -177,6 +180,7 @@ void Main()
 			memoryPool.debugDraw();
 		}
 #endif
+
 	}
 
 	AudioStreamRenderer::i().finish();
