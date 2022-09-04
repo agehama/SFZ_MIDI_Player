@@ -1,0 +1,4 @@
+[[Instrument]]
+type = "melody"
+source = "sound/Grand Piano, Kawai.sfz"
+program = "1..128"

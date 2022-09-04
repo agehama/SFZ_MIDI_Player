@@ -8,6 +8,7 @@
 #include <SampleSource.hpp>
 #include <AudioLoadManager.hpp>
 #include <AudioStreamRenderer.hpp>
+#include <Program.hpp>
 
 namespace
 {
@@ -18,33 +19,54 @@ namespace
 	const std::set<int> whiteIndices = { 0,2,4,5,7,9,11 };
 	const std::set<int> blackIndices = { 1,3,6,8,10 };
 
-	// 戻り値：[beginIndex, endIndex)
-	Optional<std::pair<uint32, uint32>> GetRangeEventIndex(const Array<KeyDownEvent>& keyDownEvents, int64 rangeBegin, int64 rangeEnd)
+	enum class InstrumentType
 	{
-		// 同時刻も有効範囲に含めたいので-1のupper_boundを取る
-		KeyDownEvent e0(0, rangeBegin - 1, 0);
-		auto beginIt = std::upper_bound(keyDownEvents.begin(), keyDownEvents.end(), e0,
-			[](const KeyDownEvent& a, const KeyDownEvent& b) { return a.pressTimePos < b.pressTimePos; });
+		Melody,
+		Rhythm,
+		Unknown,
+	};
 
-		if (beginIt == keyDownEvents.end())
+	InstrumentType ParseInstrumentType(const String& instrumentTypeStr)
+	{
+		if (instrumentTypeStr == U"melody")
 		{
-			return none;
+			return InstrumentType::Melody;
+		}
+		else if (instrumentTypeStr == U"rhythm")
+		{
+			return InstrumentType::Rhythm;
 		}
 
-		// todo: ノートオフ以降のoff_byは無視しているが、これで正しいのか？
-		KeyDownEvent e1(0, rangeEnd, 0);
-		auto nextEndIt = std::upper_bound(keyDownEvents.begin(), keyDownEvents.end(), e1,
-			[](const KeyDownEvent& a, const KeyDownEvent& b) { return a.pressTimePos < b.pressTimePos; });
+		return InstrumentType::Unknown;
+	}
 
-		if (nextEndIt == keyDownEvents.begin())
+	Array<uint8> ParseProgramNumber(const String& programNumberStr)
+	{
+		Array<uint8> programNumbers;
+
+		for (auto str : programNumberStr.split(U','))
 		{
-			return none;
+			if (auto rangePos = str.indexOf(U".."); rangePos != String::npos)
+			{
+				const auto rangeBeginStr = str.substrView(0, rangePos);
+				const auto rangeEndStr = str.substrView(rangePos + 2);
+
+				const auto rangeBegin = ParseInt<uint8>(rangeBeginStr);
+				const auto rangeEnd = ParseInt<uint8>(rangeEndStr);
+
+				for (uint8 i = rangeBegin; i <= rangeEnd; ++i)
+				{
+					programNumbers.push_back(i);
+				}
+			}
+			else
+			{
+				const auto programNumber = ParseInt<uint8>(str);
+				programNumbers.push_back(programNumber);
+			}
 		}
 
-		const auto index0 = static_cast<uint32>(std::distance(keyDownEvents.begin(), beginIt));
-		const auto index1 = static_cast<uint32>(std::distance(keyDownEvents.begin(), nextEndIt));
-
-		return std::make_pair(index0, index1);
+		return programNumbers;
 	}
 }
 
@@ -77,121 +99,68 @@ namespace
 	}
 }
 
-Wave SetSpeedWave(const Wave& original, int semitone)
+void SamplePlayer::loadSoundSet(FilePathView soundSetTomlPath)
 {
-	const double speed = std::exp2(semitone / 12.0);
-	const double scale = 1.0 / speed;
-	const auto sampleCount = static_cast<int64>(Math::Ceil(original.lengthSample() * scale));
-
-	Wave wave(sampleCount);
-	for (auto i : step(sampleCount))
+	TOMLReader soundSetReader(soundSetTomlPath);
+	if (!soundSetReader)
 	{
-		const double readIndex = i * speed;
-		const auto prevIndex = static_cast<int64>(Floor(readIndex));
-		const auto nextIndex = static_cast<int64>(Ceil(readIndex));
-		const double t = Math::Fmod(readIndex, 1.0);
-		wave[i] = original[prevIndex].lerp(original[nextIndex], t);
+		Print << U"TOMLファイルの読み込みに失敗しました: " << soundSetTomlPath;
+		return;
 	}
 
-	return wave;
-}
-
-void SamplePlayer::loadData(const SfzData& sfzData)
-{
-	if (m_audioKeys.size() != 255)
+	m_programChangeNumberToSoundSetIndex.resize(128);
+	for (auto& soundSetIndex : m_programChangeNumberToSoundSetIndex)
 	{
-		m_audioKeys = Array<AudioKey>(255);
+		soundSetIndex = 0;
 	}
 
-	for (auto [i, audioKey] : IndexedRef(m_audioKeys))
+	m_soundSet.clear();
+	m_drumKit.clear();
+
+	for (const auto& instrument : soundSetReader[U"Instrument"].tableArrayView())
 	{
-		audioKey.init(static_cast<int8>(i - 127));
-	}
-
-	HashTable<String, OscillatorType> oscTypes;
-	oscTypes[U"*sine"] = OscillatorType::Sine;
-	oscTypes[U"*tri"] = OscillatorType::Tri;
-	oscTypes[U"*triangle"] = OscillatorType::Tri;
-	oscTypes[U"*saw"] = OscillatorType::Saw;
-	oscTypes[U"*square"] = OscillatorType::Square;
-	oscTypes[U"*noise"] = OscillatorType::Noise;
-	oscTypes[U"*silence"] = OscillatorType::Silence;
-
-	Window::SetTitle(U"音源読み込み中：0 %");
-	for (const auto& [i, data] : Indexed(sfzData.data))
-	{
-		const auto progress = 1.0 * i / sfzData.data.size();
-		Window::SetTitle(Format(U"音源読み込み中：", Math::Round(progress * 100), U" %"));
-
-		const auto samplePath = sfzData.dir + data.sample;
-
-		Optional<size_t> waveIndexOpt;
-		if (!data.sample.starts_with(U"*"))
+		const auto sourcePath = instrument[U"source"].getString();
+		if (!FileSystem::Exists(sourcePath))
 		{
-			if (!FileSystem::IsFile(samplePath))
-			{
-				Console << U"error: file does not exist: \"" << samplePath << U"\"";
-				continue;
-			}
-
-			waveIndexOpt = AudioLoadManager::i().load(samplePath);
+			Print << U"\"{}\" ファイルが見つかりません。サウンドセットの読み込みに失敗しました: "_fmt(sourcePath) << soundSetTomlPath;
+			continue;
 		}
 
-		const Envelope envelope(data.ampeg_attack, data.ampeg_decay, data.ampeg_sustain / 100.0, data.ampeg_release);
-
-		const float volume = data.volume;
-		const float amplitude = static_cast<float>(std::pow(10.0, volume / 20.0) * 0.5);
-
-		const int32 loIndex = data.lokey + 127;
-		const int32 hiIndex = data.hikey + 127;
-
-		for (int32 index = loIndex; index <= hiIndex; ++index)
+		if (U"sfz" != FileSystem::Extension(sourcePath))
 		{
-			const int32 key = index - 127;
-			const int32 tune = (key - data.pitch_keycenter) * 100 + data.tune;
+			Print << U"\"{}\" sfzでないファイルが指定されました。サウンドセットの読み込みに失敗しました: "_fmt(sourcePath) << soundSetTomlPath;
+			continue;
+		}
 
-			AudioSource source(amplitude, envelope, data.lovel, data.hivel, tune);
+		Program soundProgram;
+		soundProgram.loadProgram(LoadSfz(sourcePath));
 
-			if (waveIndexOpt)
+		const auto typeStr = instrument[U"type"].getString();
+		const auto type = ParseInstrumentType(typeStr);
+
+		if (type == InstrumentType::Melody)
+		{
+			const auto soundSetIndex = static_cast<uint8>(m_soundSet.size());
+			const auto programStr = instrument[U"program"].getString();
+			const auto programNumberList = ParseProgramNumber(programStr);
+			for (auto num : programNumberList)
 			{
-				source.setWaveIndex(waveIndexOpt.value());
-			}
-			else
-			{
-				const auto frequency = static_cast<float>(440.0 * pow(2.0, (key - 69) / 12.0));
-				const auto oscType = oscTypes.at(data.sample);
-				source.setOscillator(oscType, frequency);
+				const auto programIndex = static_cast<int8>(num) - 1;
+				m_programChangeNumberToSoundSetIndex[programIndex] = soundSetIndex;
 			}
 
-			source.setSwitch(data.sw_lokey, data.sw_hikey, data.sw_last, data.sw_default);
-
-			float offTime = 0.006f;
-			if (data.off_mode == OffMode::Time)
-			{
-				offTime = data.off_time;
-			}
-			else if (data.off_mode == OffMode::Normal)
-			{
-				offTime = data.ampeg_release;
-			}
-			source.setGroup(data.group, data.off_by, offTime);
-
-			if (data.trigger == Trigger::Attack)
-			{
-				m_audioKeys[index].addAttackKey(source);
-			}
-			else if (data.trigger == Trigger::Release)
-			{
-				source.setRtDecay(data.rt_decay);
-				m_audioKeys[index].addReleaseKey(source);
-			}
+			m_soundSet.push_back(soundProgram);
+		}
+		else if (type == InstrumentType::Rhythm)
+		{
+			m_drumKit.push_back(soundProgram);
+		}
+		else
+		{
+			Print << U"\"{}\" 不明なインストゥルメントタイプです。サウンドセットの読み込みに失敗しました: "_fmt(typeStr) << soundSetTomlPath;
+			continue;
 		}
 	}
-
-	//for (const auto& key : m_audioKeys)
-	//{
-	//	key.debugPrint();
-	//}
 }
 
 int SamplePlayer::octaveCount() const
@@ -445,31 +414,62 @@ void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const Optional<Mid
 	}
 }
 
-const NoteEvent& SamplePlayer::addEvent(uint8 key, uint8 velocity, int64 pressTimePos, int64 releaseTimePos, const Array<KeyDownEvent>& history)
+Array<std::pair<uint8, NoteEvent>> SamplePlayer::loadMidiData(const MidiData& midiData)
 {
-	return m_audioKeys[key + 127].addEvent(velocity, pressTimePos, releaseTimePos, history);
-}
-
-void SamplePlayer::sortEvent()
-{
-	for (uint8 index = 127; index < 255; ++index)
+	for (auto& program: m_soundSet)
 	{
-		if (m_audioKeys[index].hasAttackKey())
+		program.clearEvent();
+	}
+
+	for (auto& program : m_drumKit)
+	{
+		program.clearEvent();
+	}
+
+	for (const auto& track : midiData.notes())
+	{
+		if (auto programPtr = refProgram(track))
 		{
-			m_audioKeys[index].sortEvent();
+			programPtr->addKeyDownEvents(midiData, track);
 		}
 	}
-}
 
-void SamplePlayer::deleteDuplicate()
-{
-	for (uint8 index = 127; index < 255; ++index)
+	for (auto& program : m_soundSet)
 	{
-		if (m_audioKeys[index].hasAttackKey())
+		program.sortKeyDownEvents();
+	}
+
+	for (auto& program : m_drumKit)
+	{
+		program.sortKeyDownEvents();
+	}
+
+	Array<std::pair<uint8, NoteEvent>> results;
+
+	for (const auto& track : midiData.notes())
+	{
+		if (auto programPtr = refProgram(track))
 		{
-			m_audioKeys[index].deleteDuplicate();
+			const auto eventsData = programPtr->addEvents(midiData, track);
+			results.append(eventsData);
 		}
 	}
+
+	for (auto& program : m_soundSet)
+	{
+		program.sortEvent();
+		program.deleteDuplicate();
+		program.calculateOffTime();
+	}
+
+	for (auto& program : m_drumKit)
+	{
+		program.sortEvent();
+		program.deleteDuplicate();
+		program.calculateOffTime();
+	}
+
+	return results;
 }
 
 void SamplePlayer::getSamples(float* left, float* right, int64 startPos, int64 sampleCount)
@@ -478,194 +478,33 @@ void SamplePlayer::getSamples(float* left, float* right, int64 startPos, int64 s
 	{
 		left[i] = right[i] = 0;
 	}
-	for (uint8 index = 127; index < 255; ++index)
+
+	for (auto& program : m_soundSet)
 	{
-		if (m_audioKeys[index].hasAttackKey())
-		{
-			m_audioKeys[index].getSamples(left, right, startPos, sampleCount);
-		}
+		program.getSamples(left, right, startPos, sampleCount);
+	}
+
+	for (auto& program : m_drumKit)
+	{
+		program.getSamples(left, right, startPos, sampleCount);
 	}
 }
 
-void SamplePlayer::clearEvent()
+Program* SamplePlayer::refProgram(const TrackData& trackData)
 {
-	for (uint8 index = 127; index < 255; ++index)
+	if (trackData.isPercussionTrack())
 	{
-		m_audioKeys[index].clearEvent();
+		if (!m_drumKit.empty())
+		{
+			return &m_drumKit[0];
+		}
 	}
+	else
+	{
+		const auto programNumer = trackData.program();
+		const auto soundSetIndex = m_programChangeNumberToSoundSetIndex[programNumer];
+		return &m_soundSet[soundSetIndex];
+	}
+
+	return nullptr;
 }
-
-Array<std::pair<uint8, NoteEvent>> SamplePlayer::addEvents(const MidiData& midiData)
-{
-	clearEvent();
-
-	const auto tracks = midiData.notes();
-
-	Array<KeyDownEvent> keyDownEvents;
-
-	for (const auto& [i, track] : Indexed(tracks))
-	{
-		if (track.isPercussionTrack())
-		{
-			continue;
-		}
-
-		if (track.notes().empty())
-		{
-			continue;
-		}
-
-		for (const auto& note : track.notes())
-		{
-			const int64 beginTick = note.tick;
-			const double beginSec = midiData.ticksToSeconds(beginTick);
-			const int64 pressTimePos = static_cast<int64>(Math::Round(beginSec * Wave::DefaultSampleRate));
-
-			keyDownEvents.emplace_back(note.key, pressTimePos, note.velocity);
-		}
-	}
-
-	keyDownEvents.sort_by([](const KeyDownEvent& a, const KeyDownEvent& b) { return a.pressTimePos < b.pressTimePos; });
-
-	Array<std::pair<uint8, NoteEvent>> results;
-
-	for (const auto& [i, track] : Indexed(tracks))
-	{
-		if (track.isPercussionTrack())
-		{
-			continue;
-		}
-
-		if (track.notes().empty())
-		{
-			continue;
-		}
-
-		for (const auto& note : track.notes())
-		{
-			const int64 beginTick = note.tick;
-			const int64 endTick = note.tick + note.gate;
-
-			const double beginSec = midiData.ticksToSeconds(beginTick);
-			const double endSec = midiData.ticksToSeconds(endTick);
-
-			const int64 pressTimePos = static_cast<int64>(Math::Round(beginSec * Wave::DefaultSampleRate));
-			const int64 releaseTimePos = static_cast<int64>(Math::Round(endSec * Wave::DefaultSampleRate));
-
-			const NoteEvent noteEvent = addEvent(note.key, note.velocity, pressTimePos, releaseTimePos, keyDownEvents);
-			results.push_back(std::make_pair(note.key, noteEvent));
-		}
-	}
-
-	sortEvent();
-
-	deleteDuplicate();
-
-	// off_byによるdisableTimeが決まるのは、sw_*などを考慮して各イベントに対応するAudioSourceが決まった後
-	for (uint8 index = 127; index < 255; ++index)
-	{
-		const auto key = index - 127;
-		if (m_audioKeys[index].hasAttackKey())
-		{
-			//m_audioKeys[index].sortEvent();
-			auto& events = m_audioKeys[index].noteEvents();
-
-			for (auto& noteEvent : events)
-			{
-				if (noteEvent.attackIndex == -1)
-				{
-					continue;
-				}
-
-				const auto& audioKey = m_audioKeys[key + 127];
-				const auto& attackKey = audioKey.getAttackKey(noteEvent.attackIndex);
-				const auto off_by = attackKey.offBy();
-				if (off_by == 0)
-				{
-					continue;
-				}
-
-				if (auto rangeOpt = GetRangeEventIndex(keyDownEvents, noteEvent.pressTimePos, noteEvent.releaseTimePos))
-				{
-					const auto [beginIndex, endIndex] = rangeOpt.value();
-
-					for (uint32 i = beginIndex; i < endIndex; ++i)
-					{
-						const auto& followKeyDown = keyDownEvents[i];
-
-						// 自分自身だったら無視
-						if (key == followKeyDown.key && noteEvent.pressTimePos == followKeyDown.pressTimePos)
-						{
-							continue;
-						}
-
-						const auto& followAudioKey = m_audioKeys[followKeyDown.key + 127];
-						const auto followAttackIndex = followAudioKey.getAttackIndex(followKeyDown.velocity, followKeyDown.pressTimePos, keyDownEvents);
-						if (followAttackIndex != -1)
-						{
-							const auto& followAttackKey = followAudioKey.getAttackKey(followAttackIndex);
-
-							if (off_by == followAttackKey.group())
-							{
-								noteEvent.disableTimePos = followKeyDown.pressTimePos;
-								break;
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return results;
-}
-
-void SamplerAudioStream::getAudio(float* left, float* right, const size_t samplesToWrite)
-{
-	if (!m_pianoroll.get().isPlaying())
-	{
-		return;
-	}
-
-	SamplerAudioStream::time1 = 0;
-	SamplerAudioStream::time2 = 0;
-	SamplerAudioStream::time3 = 0;
-	SamplerAudioStream::time4 = 0;
-
-	Stopwatch watch(StartImmediately::Yes);
-
-	//m_samplePlayer.get().getSamples(left, right, m_pos, samplesToWrite);
-	auto& renderer = AudioStreamRenderer::i();
-
-	for (int i = 0; i < samplesToWrite; ++i)
-	{
-		const auto sample = renderer.getSample(m_pos + i);
-		left[i] = sample.left * volume;
-		right[i] = sample.right * volume;
-	}
-
-	m_pos += samplesToWrite;
-
-#ifdef DEVELOPMENT
-	const double time = watch.usF();
-
-	if (5000 < time)
-	{
-		Console << Vec4(SamplerAudioStream::time1, SamplerAudioStream::time2, SamplerAudioStream::time3, SamplerAudioStream::time4) << U", " << time;
-	}
-#endif
-}
-
-void AudioRenderer::getAudio(float* left, float* right, int64 startPos, int64 sampleCount)
-{
-	AudioLoadManager::i().markBlocks();
-
-	m_samplePlayer.get().getSamples(left, right, startPos, sampleCount);
-
-	AudioLoadManager::i().freeUnusedBlocks();
-}
-
-double SamplerAudioStream::time1 = 0;
-double SamplerAudioStream::time2 = 0;
-double SamplerAudioStream::time3 = 0;
-double SamplerAudioStream::time4 = 0;

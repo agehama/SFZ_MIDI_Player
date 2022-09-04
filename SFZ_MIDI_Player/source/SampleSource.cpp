@@ -4,6 +4,7 @@
 #include <SampleSource.hpp>
 #include <SamplePlayer.hpp>
 #include <AudioStreamRenderer.hpp>
+#include <Program.hpp>
 
 double Envelope::level(double noteOnTime, double noteOffTime, double time) const
 {

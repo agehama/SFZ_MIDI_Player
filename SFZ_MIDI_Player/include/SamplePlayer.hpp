@@ -3,10 +3,12 @@
 
 struct SfzData;
 class PianoRoll;
+class TrackData;
 class MidiData;
 struct KeyDownEvent;
 struct NoteEvent;
 class AudioKey;
+class Program;
 
 class SamplePlayer
 {
@@ -18,7 +20,7 @@ public:
 		m_area(area)
 	{}
 
-	void loadData(const SfzData& sfzData);
+	void loadSoundSet(FilePathView soundSetTomlPath);
 
 	int octaveCount() const;
 	double octaveHeight() const;
@@ -38,21 +40,18 @@ public:
 
 	void drawHorizontal(const PianoRoll& pianoroll, const Optional<MidiData>& midiData) const;
 
-	const NoteEvent& addEvent(uint8 key, uint8 velocity, int64 pressTimePos, int64 releaseTimePos, const Array<KeyDownEvent>& history);
-
-	void sortEvent();
-
-	void deleteDuplicate();
+	Array<std::pair<uint8, NoteEvent>> loadMidiData(const MidiData& midiData);
 
 	void getSamples(float* left, float* right, int64 startPos, int64 sampleCount);
 
-	void clearEvent();
-
-	Array<std::pair<uint8, NoteEvent>> addEvents(const MidiData& midiData);
-
 private:
 
-	Array<AudioKey> m_audioKeys;
+	Program* refProgram(const TrackData& trackData);
+
+	Array<Program> m_soundSet;
+	Array<Program> m_drumKit;
+
+	Array<uint8> m_programChangeNumberToSoundSetIndex;
 
 	RectF m_area;
 
