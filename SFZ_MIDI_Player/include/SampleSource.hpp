@@ -117,6 +117,12 @@ public:
 		m_disableFadeSeconds = disableFadeSeconds;
 	}
 
+	void setPolyphony(PolyphonyType type, uint8 polyphonyCount)
+	{
+		m_polyphonyType = type;
+		m_polyphonyCount = polyphonyCount;
+	}
+
 	bool isValidVelocity(uint8 velocity) const
 	{
 		return m_lovel <= velocity && velocity <= m_hivel;
@@ -144,6 +150,10 @@ public:
 	uint32 offBy() const { return m_offBy; }
 	float disableFadeSeconds() const { return m_disableFadeSeconds; }
 
+	bool isPolyphony() const { return m_polyphonyType.has_value(); }
+	PolyphonyType polyphonyType() const { return m_polyphonyType.value(); }
+	uint8 polyphonyCount() const { return m_polyphonyCount; }
+
 private:
 
 	Optional<OscillatorType> m_oscillatorType;
@@ -167,6 +177,9 @@ private:
 	int8 m_swHikey = 0;
 	int8 m_swLast = 0;
 	int8 m_swDefault = 0;
+
+	Optional<PolyphonyType> m_polyphonyType;
+	uint8 m_polyphonyCount;
 
 	uint32 m_group = 0;
 	uint32 m_offBy = 0;

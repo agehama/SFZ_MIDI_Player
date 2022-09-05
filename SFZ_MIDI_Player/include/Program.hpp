@@ -37,6 +37,8 @@ private:
 
 	const NoteEvent& addEvent(uint8 key, uint8 velocity, int64 pressTimePos, int64 releaseTimePos, const Array<KeyDownEvent>& history);
 
+	Optional<std::pair<uint32, uint32>> GetRangeEventIndex(const Array<KeyDownEvent>& keyDownEvents, int64 rangeBegin, int64 rangeEnd) const;
+
 	Array<AudioKey> m_audioKeys;
 
 	Array<KeyDownEvent> m_keyDownEvents;

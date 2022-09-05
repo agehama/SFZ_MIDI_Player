@@ -37,6 +37,12 @@ namespace
 
 		return std::make_pair(index0, index1);
 	}
+
+	int64 findOffTime(const Array<KeyDownEvent>& keyDownEvents, uint32 indexBegin, uint32 indexEnd, AudioSource& attackKey)
+	{
+		keyDownEvents;
+		attackKey;
+	}
 }
 
 void Program::loadProgram(const SfzData& sfzData)
@@ -104,6 +110,11 @@ void Program::loadProgram(const SfzData& sfzData)
 				const auto frequency = static_cast<float>(440.0 * pow(2.0, (key - 69) / 12.0));
 				const auto oscType = oscTypes.at(data.sample);
 				source.setOscillator(oscType, frequency);
+			}
+
+			if (data.polyphony != PolyphonyType::None)
+			{
+				source.setPolyphony(data.polyphony, data.polyphony_count);
 			}
 
 			source.setSwitch(data.sw_lokey, data.sw_hikey, data.sw_last, data.sw_default);
@@ -216,7 +227,6 @@ void Program::calculateOffTime()
 		const auto key = index - 127;
 		if (m_audioKeys[index].hasAttackKey())
 		{
-			//m_audioKeys[index].sortEvent();
 			auto& events = m_audioKeys[index].noteEvents();
 
 			for (auto& noteEvent : events)
@@ -228,36 +238,71 @@ void Program::calculateOffTime()
 
 				const auto& audioKey = m_audioKeys[key + 127];
 				const auto& attackKey = audioKey.getAttackKey(noteEvent.attackIndex);
-				const auto off_by = attackKey.offBy();
-				if (off_by == 0)
-				{
-					continue;
-				}
 
 				if (auto rangeOpt = GetRangeEventIndex(m_keyDownEvents, noteEvent.pressTimePos, noteEvent.releaseTimePos))
 				{
 					const auto [beginIndex, endIndex] = rangeOpt.value();
 
-					for (uint32 i = beginIndex; i < endIndex; ++i)
+					// polyphonyによるノートオフ
+					if (attackKey.isPolyphony())
 					{
-						const auto& followKeyDown = m_keyDownEvents[i];
+						attackKey.polyphonyType();
 
-						// 自分自身だったら無視
-						if (key == followKeyDown.key && noteEvent.pressTimePos == followKeyDown.pressTimePos)
+						for (uint32 i = beginIndex; i < endIndex; ++i)
 						{
-							continue;
-						}
+							const auto& followKeyDown = m_keyDownEvents[i];
 
-						const auto& followAudioKey = m_audioKeys[followKeyDown.key + 127];
-						const auto followAttackIndex = followAudioKey.getAttackIndex(followKeyDown.velocity, followKeyDown.pressTimePos, m_keyDownEvents);
-						if (followAttackIndex != -1)
-						{
-							const auto& followAttackKey = followAudioKey.getAttackKey(followAttackIndex);
-
-							if (off_by == followAttackKey.group())
+							// 自分自身は無視
+							if (key == followKeyDown.key && noteEvent.pressTimePos == followKeyDown.pressTimePos)
 							{
-								noteEvent.disableTimePos = followKeyDown.pressTimePos;
-								break;
+								continue;
+							}
+
+							const auto& followAudioKey = m_audioKeys[followKeyDown.key + 127];
+							const auto followAttackIndex = followAudioKey.getAttackIndex(followKeyDown.velocity, followKeyDown.pressTimePos, m_keyDownEvents);
+							if (followAttackIndex != -1)
+							{
+								const auto& followAttackKey = followAudioKey.getAttackKey(followAttackIndex);
+
+								if (attackKey.group() == followAttackKey.group())
+								{
+
+								}
+
+								//if (off_by == followAttackKey.group())
+								//{
+								//	noteEvent.disableTimePos = followKeyDown.pressTimePos;
+								//	break;
+								//}
+							}
+						}
+					}
+
+					// off_byによるノートオフ
+					const auto off_by = attackKey.offBy();
+					if (off_by != 0)
+					{
+						for (uint32 i = beginIndex; i < endIndex; ++i)
+						{
+							const auto& followKeyDown = m_keyDownEvents[i];
+
+							// 自分自身は無視
+							if (key == followKeyDown.key && noteEvent.pressTimePos == followKeyDown.pressTimePos)
+							{
+								continue;
+							}
+
+							const auto& followAudioKey = m_audioKeys[followKeyDown.key + 127];
+							const auto followAttackIndex = followAudioKey.getAttackIndex(followKeyDown.velocity, followKeyDown.pressTimePos, m_keyDownEvents);
+							if (followAttackIndex != -1)
+							{
+								const auto& followAttackKey = followAudioKey.getAttackKey(followAttackIndex);
+
+								if (off_by == followAttackKey.group())
+								{
+									noteEvent.disableTimePos = followKeyDown.pressTimePos;
+									break;
+								}
 							}
 						}
 					}
@@ -281,4 +326,9 @@ void Program::getSamples(float* left, float* right, int64 startPos, int64 sample
 const NoteEvent& Program::addEvent(uint8 key, uint8 velocity, int64 pressTimePos, int64 releaseTimePos, const Array<KeyDownEvent>& history)
 {
 	return m_audioKeys[key + 127].addEvent(velocity, pressTimePos, releaseTimePos, history);
+}
+
+Optional<std::pair<uint32, uint32>> Program::rangeEventIndex(int64 rangeBegin, int64 rangeEnd) const
+{
+
 }
