@@ -145,7 +145,7 @@ void SamplePlayer::loadSoundSet(FilePathView soundSetTomlPath)
 			const auto programNumberList = ParseProgramNumber(programStr);
 			for (auto num : programNumberList)
 			{
-				const auto programIndex = static_cast<int8>(num) - 1;
+				const auto programIndex = static_cast<int32>(num) - 1;
 				m_programChangeNumberToSoundSetIndex[programIndex] = soundSetIndex;
 			}
 

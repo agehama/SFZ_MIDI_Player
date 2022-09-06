@@ -102,20 +102,11 @@ public:
 
 	void setOscillator(OscillatorType oscillatorType, float frequency);
 
-	void setSwitch(int8 swLokey, int8 swHikey, int8 swLast, int8 swDefault)
-	{
-		m_swLokey = swLokey;
-		m_swHikey = swHikey;
-		m_swLast = swLast;
-		m_swDefault = swDefault;
-	}
+	void setSwitch(int8 swLokey, int8 swHikey, int8 swLast, int8 swDefault);
 
-	void setGroup(uint32 group, uint32 offBy, float disableFadeSeconds)
-	{
-		m_group = group;
-		m_offBy = offBy;
-		m_disableFadeSeconds = disableFadeSeconds;
-	}
+	void setGroup(uint32 group, uint32 offBy, float disableFadeSeconds);
+
+	void setLoopMode(LoopMode loopMode);
 
 	bool isValidVelocity(uint8 velocity) const
 	{
@@ -144,6 +135,9 @@ public:
 	uint32 offBy() const { return m_offBy; }
 	float disableFadeSeconds() const { return m_disableFadeSeconds; }
 
+	double noteDuration(const NoteEvent& noteEvent) const;
+	bool isOneShot() const { return m_loopMode && m_loopMode.value() == LoopMode::OneShot; }
+
 private:
 
 	Optional<OscillatorType> m_oscillatorType;
@@ -163,10 +157,12 @@ private:
 	uint8 m_hivel;
 	Envelope m_envelope;
 
-	int8 m_swLokey = 0;
-	int8 m_swHikey = 0;
-	int8 m_swLast = 0;
-	int8 m_swDefault = 0;
+	Optional<LoopMode> m_loopMode;
+
+	Optional<int8> m_swLokey;
+	Optional<int8> m_swHikey;
+	Optional<int8> m_swLast;
+	Optional<int8> m_swDefault;
 
 	uint32 m_group = 0;
 	uint32 m_offBy = 0;

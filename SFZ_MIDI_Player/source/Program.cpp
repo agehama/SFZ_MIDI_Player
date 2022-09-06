@@ -73,7 +73,9 @@ void Program::loadProgram(const SfzData& sfzData)
 		{
 			if (!FileSystem::IsFile(samplePath))
 			{
+#ifdef DEVELOPMENT
 				Console << U"error: file does not exist: \"" << samplePath << U"\"";
+#endif
 				continue;
 			}
 
@@ -106,6 +108,7 @@ void Program::loadProgram(const SfzData& sfzData)
 				source.setOscillator(oscType, frequency);
 			}
 
+			source.setLoopMode(data.loopMode);
 			source.setSwitch(data.sw_lokey, data.sw_hikey, data.sw_last, data.sw_default);
 
 			float offTime = 0.006f;
@@ -130,11 +133,6 @@ void Program::loadProgram(const SfzData& sfzData)
 			}
 		}
 	}
-
-	//for (const auto& key : m_audioKeys)
-	//{
-	//	key.debugPrint();
-	//}
 }
 
 void Program::clearEvent()
