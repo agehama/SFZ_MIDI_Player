@@ -102,25 +102,11 @@ public:
 
 	void setOscillator(OscillatorType oscillatorType, float frequency);
 
-	void setSwitch(int8 swLokey, int8 swHikey, int8 swLast, int8 swDefault)
-	{
-		m_swLokey = swLokey;
-		m_swHikey = swHikey;
-		m_swLast = swLast;
-		m_swDefault = swDefault;
-	}
+	void setSwitch(int8 swLokey, int8 swHikey, int8 swLast, int8 swDefault);
 
-	void setGroup(uint32 group, uint32 offBy, float disableFadeSeconds)
-	{
-		m_group = group;
-		m_offBy = offBy;
-		m_disableFadeSeconds = disableFadeSeconds;
-	}
+	void setGroup(uint32 group, uint32 offBy, float disableFadeSeconds);
 
-	void setLoopMode(LoopMode loopMode)
-	{
-		m_loopMode = loopMode;
-	}
+	void setLoopMode(LoopMode loopMode);
 
 	bool isValidVelocity(uint8 velocity) const
 	{
@@ -173,10 +159,10 @@ private:
 
 	Optional<LoopMode> m_loopMode;
 
-	int8 m_swLokey = 0;
-	int8 m_swHikey = 0;
-	int8 m_swLast = 0;
-	int8 m_swDefault = 0;
+	Optional<int8> m_swLokey;
+	Optional<int8> m_swHikey;
+	Optional<int8> m_swLast;
+	Optional<int8> m_swDefault;
 
 	uint32 m_group = 0;
 	uint32 m_offBy = 0;

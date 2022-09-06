@@ -108,11 +108,7 @@ void Program::loadProgram(const SfzData& sfzData)
 				source.setOscillator(oscType, frequency);
 			}
 
-			if (data.loopMode != LoopMode::Unspecified)
-			{
-				source.setLoopMode(data.loopMode);
-			}
-
+			source.setLoopMode(data.loopMode);
 			source.setSwitch(data.sw_lokey, data.sw_hikey, data.sw_last, data.sw_default);
 
 			float offTime = 0.006f;

@@ -57,10 +57,10 @@ struct RegionSetting
 	float ampeg_sustain = 100.0f;
 	float ampeg_release = 0.0f;
 
-	int8 sw_lokey = 0;
-	int8 sw_hikey = 0;
-	int8 sw_last = 0;
-	int8 sw_default = 0;
+	int8 sw_lokey = -1;
+	int8 sw_hikey = -1;
+	int8 sw_last = -1;
+	int8 sw_default = -1;
 
 	void debugPrint() const;
 };

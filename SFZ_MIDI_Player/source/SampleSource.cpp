@@ -63,10 +63,33 @@ void AudioSource::setOscillator(OscillatorType oscillatorType, float frequency)
 	m_frequency = frequency;
 }
 
+void AudioSource::setSwitch(int8 swLokey, int8 swHikey, int8 swLast, int8 swDefault)
+{
+	if (0 <= swLokey) { m_swLokey = swLokey; }
+	if (0 <= swHikey) { m_swHikey = swHikey; }
+	if (0 <= swLast) { m_swLast = swLast; }
+	if (0 <= swDefault) { m_swDefault = swDefault; }
+}
+
+void AudioSource::setGroup(uint32 group, uint32 offBy, float disableFadeSeconds)
+{
+	m_group = group;
+	m_offBy = offBy;
+	m_disableFadeSeconds = disableFadeSeconds;
+}
+
+void AudioSource::setLoopMode(LoopMode loopMode)
+{
+	if (loopMode != LoopMode::Unspecified)
+	{
+		m_loopMode = loopMode;
+	}
+}
+
 bool AudioSource::isValidSwLast(int64 pressTimePos, const Array<KeyDownEvent>& history) const
 {
 	// 未設定の場合
-	if (m_swLokey == m_swHikey)
+	if (!m_swLast || !m_swLokey || !m_swHikey)
 	{
 		return true;
 	}
@@ -79,13 +102,18 @@ bool AudioSource::isValidSwLast(int64 pressTimePos, const Array<KeyDownEvent>& h
 		}
 
 		const auto key = history[i].key;
-		if (m_swLokey <= key && key <= m_swHikey)
+		if (m_swLokey.value() <= key && key <= m_swHikey.value())
 		{
 			return m_swLast == key;
 		}
 	}
 
-	return m_swLast == m_swDefault;
+	if (m_swDefault)
+	{
+		return m_swLast.value() == m_swDefault.value();
+	}
+
+	return false;
 }
 
 void AudioSource::setRtDecay(float rtDecay)
