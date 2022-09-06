@@ -239,6 +239,18 @@ void AudioSource::use(size_t beginSampleIndex, size_t sampleCount)
 	}
 }
 
+double AudioSource::noteDuration(const NoteEvent& noteEvent) const
+{
+	if (m_loopMode && m_loopMode.value() == LoopMode::OneShot)
+	{
+		return 1.0 * lengthSample() / Wave::DefaultSampleRate;
+	}
+	else
+	{
+		return m_envelope.noteTime(noteEvent);
+	}
+}
+
 const AudioLoaderBase& AudioSource::getReader() const
 {
 	return AudioLoadManager::i().reader(m_index);
@@ -450,7 +462,7 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 	if (Max(0ll, -writeIndexHead) < sampleReadCount)
 	{
 		const double startTime = 1.0 * startPos / attackKey.sampleRate();
-		if (startTime < 1.0 * targetEvent.pressTimePos / attackKey.sampleRate() + envelope.noteTime(targetEvent))
+		if (startTime < 1.0 * targetEvent.pressTimePos / attackKey.sampleRate() + attackKey.noteDuration(targetEvent))
 		{
 			const auto speed = attackKey.getSpeed();
 			const auto samples = static_cast<size_t>((sampleCount + 10) * speed);
@@ -463,7 +475,7 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 				const auto& prevEvent = m_noteEvents[noteIndex - 1];
 				auto& prevAttackKey = attackKeys[prevEvent.attackIndex];
 
-				if (startTime < 1.0 * prevEvent.pressTimePos / attackKey.sampleRate() + prevAttackKey.envelope().noteTime(prevEvent))
+				if (startTime < 1.0 * prevEvent.pressTimePos / attackKey.sampleRate() + prevAttackKey.noteDuration(prevEvent))
 				{
 					const auto [prevReadCount, prevEmptyCount] = readEmptyCount(startPos, sampleCount, noteIndex - 1);
 
@@ -501,9 +513,11 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 			}
 		}
 
-		const double currentLevel = envelope.level(targetEvent, time) * currentVolume * disableCoeff;
+		const double currentLevel = attackKey.isOneShot()
+			? currentVolume * disableCoeff
+			: currentVolume * disableCoeff * envelope.level(targetEvent, time);
 
-		if (1.0 * targetEvent.pressTimePos / attackKey.sampleRate() + envelope.noteTime(targetEvent) < time)
+		if (1.0 * targetEvent.pressTimePos / attackKey.sampleRate() + attackKey.noteDuration(targetEvent) < time)
 		{
 			break;
 		}
@@ -516,7 +530,7 @@ void AudioKey::render(float* left, float* right, int64 startPos, int64 sampleCou
 			const auto& prevEvent = m_noteEvents[noteIndex - 1];
 			auto& prevAttackKey = attackKeys[prevEvent.attackIndex];
 
-			if (time < 1.0 * prevEvent.pressTimePos / attackKey.sampleRate() + prevAttackKey.envelope().noteTime(prevEvent))
+			if (time < 1.0 * prevEvent.pressTimePos / attackKey.sampleRate() + prevAttackKey.noteDuration(prevEvent))
 			{
 				const auto [prevReadCount, prevEmptyCount] = readEmptyCount(startPos, sampleCount, noteIndex - 1);
 
@@ -610,7 +624,9 @@ std::pair<int64, int64> AudioKey::readEmptyCount(int64 startPos, int64 sampleCou
 {
 	const auto& targetEvent = m_noteEvents[noteIndex];
 	const auto& attackKey = attackKeys[targetEvent.attackIndex];
-	const auto maxGateSamples = noteIndex + 1 < static_cast<int64>(m_noteEvents.size()) ? m_noteEvents[noteIndex + 1].pressTimePos - m_noteEvents[noteIndex].pressTimePos : static_cast<int64>(attackKey.lengthSample());
+	const auto maxGateSamples = noteIndex + 1 < static_cast<int64>(m_noteEvents.size())
+		? m_noteEvents[noteIndex + 1].pressTimePos - m_noteEvents[noteIndex].pressTimePos
+		: static_cast<int64>(attackKey.lengthSample());
 	const auto maxReadCount = Min(static_cast<int64>(attackKey.lengthSample()), maxGateSamples);
 	const int64 writeIndexHead = getWriteIndexHead(startPos, noteIndex);
 

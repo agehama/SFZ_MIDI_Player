@@ -117,6 +117,11 @@ public:
 		m_disableFadeSeconds = disableFadeSeconds;
 	}
 
+	void setLoopMode(LoopMode loopMode)
+	{
+		m_loopMode = loopMode;
+	}
+
 	bool isValidVelocity(uint8 velocity) const
 	{
 		return m_lovel <= velocity && velocity <= m_hivel;
@@ -144,6 +149,9 @@ public:
 	uint32 offBy() const { return m_offBy; }
 	float disableFadeSeconds() const { return m_disableFadeSeconds; }
 
+	double noteDuration(const NoteEvent& noteEvent) const;
+	bool isOneShot() const { return m_loopMode && m_loopMode.value() == LoopMode::OneShot; }
+
 private:
 
 	Optional<OscillatorType> m_oscillatorType;
@@ -162,6 +170,8 @@ private:
 	uint8 m_lovel;
 	uint8 m_hivel;
 	Envelope m_envelope;
+
+	Optional<LoopMode> m_loopMode;
 
 	int8 m_swLokey = 0;
 	int8 m_swHikey = 0;

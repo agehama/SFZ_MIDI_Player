@@ -1,6 +1,11 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
 
+enum class SFZHeader : uint8
+{
+	Region, Group, Control, Global, Curve, Effect, Master, Midi, Sample
+};
+
 enum class Trigger : uint8
 {
 	Attack, Release, First, Legato
@@ -9,6 +14,11 @@ enum class Trigger : uint8
 enum class OffMode : uint8
 {
 	Fast, Normal, Time
+};
+
+enum class LoopMode : uint8
+{
+	NoLoop, OneShot, LoopContinuous, LoopSustain, Unspecified
 };
 
 // https://musf.ifdef.jp/sfz/sfz_File_Format.html
@@ -31,6 +41,7 @@ struct RegionSetting
 
 	// Sample Player
 	uint32 offset = 0;
+	LoopMode loopMode = LoopMode::Unspecified;
 
 	// Pitch
 	int16 tune = 0;
