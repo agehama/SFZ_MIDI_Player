@@ -16,6 +16,11 @@ enum class OffMode : uint8
 	Fast, Normal, Time
 };
 
+enum class PolyphonyType : uint8
+{
+	None, Count, LegatoHigh, LegatoLast, LegatoLow
+};
+
 enum class LoopMode : uint8
 {
 	NoLoop, OneShot, LoopContinuous, LoopSustain, Unspecified
@@ -38,6 +43,9 @@ struct RegionSetting
 	int32 off_by = 0;
 	OffMode off_mode = OffMode::Fast;
 	float off_time = 0.006f;
+
+	PolyphonyType polyphony = PolyphonyType::None;
+	uint8 polyphony_count = 0;
 
 	// Sample Player
 	uint32 offset = 0;

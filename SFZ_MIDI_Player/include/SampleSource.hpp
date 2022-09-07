@@ -108,6 +108,8 @@ public:
 
 	void setLoopMode(LoopMode loopMode);
 
+	void setPolyphony(PolyphonyType type, uint8 polyphonyCount);
+
 	bool isValidVelocity(uint8 velocity) const
 	{
 		return m_lovel <= velocity && velocity <= m_hivel;
@@ -134,6 +136,10 @@ public:
 	uint32 group() const { return m_group; }
 	uint32 offBy() const { return m_offBy; }
 	float disableFadeSeconds() const { return m_disableFadeSeconds; }
+
+	bool isPolyphony() const { return m_polyphonyType.has_value(); }
+	PolyphonyType polyphonyType() const { return m_polyphonyType.value(); }
+	uint8 polyphonyCount() const { return m_polyphonyCount; }
 
 	double noteDuration(const NoteEvent& noteEvent) const;
 	bool isOneShot() const { return m_loopMode && m_loopMode.value() == LoopMode::OneShot; }
@@ -163,6 +169,9 @@ private:
 	Optional<int8> m_swHikey;
 	Optional<int8> m_swLast;
 	Optional<int8> m_swDefault;
+
+	Optional<PolyphonyType> m_polyphonyType;
+	uint8 m_polyphonyCount;
 
 	uint32 m_group = 0;
 	uint32 m_offBy = 0;

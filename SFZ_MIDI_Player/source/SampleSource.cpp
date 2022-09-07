@@ -86,6 +86,15 @@ void AudioSource::setLoopMode(LoopMode loopMode)
 	}
 }
 
+void AudioSource::setPolyphony(PolyphonyType type, uint8 polyphonyCount)
+{
+	if (type != PolyphonyType::None)
+	{
+		m_polyphonyType = type;
+		m_polyphonyCount = polyphonyCount;
+	}
+}
+
 bool AudioSource::isValidSwLast(int64 pressTimePos, const Array<KeyDownEvent>& history) const
 {
 	// 未設定の場合

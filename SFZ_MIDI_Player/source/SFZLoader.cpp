@@ -64,6 +64,30 @@ namespace
 		return OffMode::Fast;
 	}
 
+	std::pair<PolyphonyType, uint8> ParsePolyphony(StringView polyphony)
+	{
+		if (auto opt = ParseIntOpt<uint8>(polyphony))
+		{
+			return std::make_pair(PolyphonyType::Count, opt.value());
+		}
+
+		if (polyphony == U"legato_high")
+		{
+			return std::make_pair<PolyphonyType, uint8>(PolyphonyType::LegatoHigh, 1);
+		}
+		else if (polyphony == U"legato_last")
+		{
+			return std::make_pair<PolyphonyType, uint8>(PolyphonyType::LegatoLast, 1);
+		}
+		else if (polyphony == U"legato_low")
+		{
+			return std::make_pair<PolyphonyType, uint8>(PolyphonyType::LegatoLow, 1);
+		}
+
+		assert(false);
+		return std::make_pair<PolyphonyType, uint8>(PolyphonyType::None, 0);
+	}
+
 	LoopMode ParseLoopMode(StringView loopModeStr)
 	{
 		if (loopModeStr == U"no_loop")
@@ -149,6 +173,9 @@ namespace
 		Optional<OffMode> off_mode;
 		Optional<float> off_time;
 
+		Optional<PolyphonyType> polyphony;
+		Optional<uint8> polyphony_count;
+
 		// Sample Player
 		Optional<uint32> offset;
 		Optional<LoopMode> loopMode;
@@ -189,6 +216,9 @@ namespace
 			result.off_mode = CombineOpt(off_mode, weaker.off_mode);
 			result.off_time = CombineOpt(off_time, weaker.off_time);
 
+			result.polyphony = CombineOpt(polyphony, weaker.polyphony);
+			result.polyphony_count = CombineOpt(polyphony_count, weaker.polyphony_count);
+
 			result.offset = CombineOpt(offset, weaker.offset);
 			result.loopMode = CombineOpt(loopMode, weaker.loopMode);
 
@@ -227,6 +257,9 @@ namespace
 			if (off_by) { result.off_by = off_by.value(); }
 			if (off_mode) { result.off_mode = off_mode.value(); }
 			if (off_time) { result.off_time = off_time.value(); }
+
+			if (polyphony) { result.polyphony = polyphony.value(); }
+			if (polyphony_count) { result.polyphony_count = polyphony_count.value(); }
 
 			if (offset) { result.offset = offset.value(); }
 			if (loopMode) { result.loopMode = loopMode.value(); }
@@ -439,6 +472,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 	const String keyOffBy = U"off_by=";
 	const String keyOffMode = U"off_mode=";
 	const String keyOffTime = U"off_time=";
+	const String keyPolyphony = U"polyphony=";
 	const String keyLoopMode = U"loop_mode=";
 
 	const auto parentDirectory = FileSystem::ParentPath(sfzPath);
@@ -558,6 +592,12 @@ SfzData LoadSfz(FilePathView sfzPath)
 		else if (token.starts_with(keyLoopMode))
 		{
 			setting().loopMode = ParseLoopMode(token.substr(keyLoopMode.length()));
+		}
+		else if (token.starts_with(keyPolyphony))
+		{
+			const auto [polyType, polyCount] = ParsePolyphony(token.substr(keyPolyphony.length()));
+			setting().polyphony = polyType;
+			setting().polyphony_count = polyCount;
 		}
 		else if (token.starts_with(keyOffBy))
 		{
