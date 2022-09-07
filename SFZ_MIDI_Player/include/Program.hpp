@@ -15,7 +15,7 @@ public:
 
 	Program() = default;
 
-	void loadProgram(const SfzData& sfzData);
+	void loadProgram(const SfzData& sfzData, float volume);
 
 	void clearEvent();
 

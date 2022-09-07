@@ -132,8 +132,18 @@ void SamplePlayer::loadSoundSet(FilePathView soundSetTomlPath)
 			continue;
 		}
 
+		const auto volumeVal = instrument[U"volume"];
+		float volume = 0.0f;
+		if (!volumeVal.isEmpty())
+		{
+			if (auto opt = volumeVal.getOpt<float>())
+			{
+				volume = opt.value();
+			}
+		}
+
 		Program soundProgram;
-		soundProgram.loadProgram(LoadSfz(sourcePath));
+		soundProgram.loadProgram(LoadSfz(sourcePath), volume);
 
 		const auto typeStr = instrument[U"type"].getString();
 		const auto type = ParseInstrumentType(typeStr);

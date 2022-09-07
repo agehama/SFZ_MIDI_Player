@@ -39,7 +39,7 @@ namespace
 	}
 }
 
-void Program::loadProgram(const SfzData& sfzData)
+void Program::loadProgram(const SfzData& sfzData, float masterVolume)
 {
 	if (m_audioKeys.size() != 255)
 	{
@@ -84,7 +84,7 @@ void Program::loadProgram(const SfzData& sfzData)
 
 		const Envelope envelope(data.ampeg_attack, data.ampeg_decay, data.ampeg_sustain / 100.0, data.ampeg_release);
 
-		const float volume = data.volume;
+		const float volume = data.volume + masterVolume;
 		const float amplitude = static_cast<float>(std::pow(10.0, volume / 20.0) * 0.5);
 
 		const int32 loIndex = data.lokey + 127;
