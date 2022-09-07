@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <Config.hpp>
 #include <SFZLoader.hpp>
 
 namespace
@@ -87,6 +88,29 @@ namespace
 		return std::make_pair<PolyphonyType, uint8>(PolyphonyType::None, 0);
 	}
 
+	LoopMode ParseLoopMode(StringView loopModeStr)
+	{
+		if (loopModeStr == U"no_loop")
+		{
+			return LoopMode::NoLoop;
+		}
+		else if (loopModeStr == U"one_shot")
+		{
+			return LoopMode::OneShot;
+		}
+		else if (loopModeStr == U"loop_continuous")
+		{
+			return LoopMode::LoopContinuous;
+		}
+		else if (loopModeStr == U"loop_sustain")
+		{
+			return LoopMode::LoopSustain;
+		}
+
+		assert(false);
+		return LoopMode::Unspecified;
+	}
+
 	Optional<uint8> ParseMidiKey(StringView str)
 	{
 		std::map<String, uint8> keys;
@@ -125,6 +149,141 @@ namespace
 
 		return none;
 	}
+
+	template<typename T>
+	const Optional<T>& CombineOpt(const Optional<T>& left, const Optional<T>& right)
+	{
+		return left ? left : right;
+	}
+
+	struct RegionSettingOpt
+	{
+		Optional<String> sample;
+
+		// Input Controls
+		Optional<uint8> lovel;
+		Optional<uint8> hivel;
+		Optional<uint8> lokey;
+		Optional<uint8> hikey;
+		Optional<Trigger> trigger;
+
+		// group番号は1以上（0はグループに所属しない）
+		Optional<int32> group;
+		Optional<int32> off_by;
+		Optional<OffMode> off_mode;
+		Optional<float> off_time;
+
+		Optional<PolyphonyType> polyphony;
+		Optional<uint8> polyphony_count;
+
+		// Sample Player
+		Optional<uint32> offset;
+		Optional<LoopMode> loopMode;
+
+		// Pitch
+		Optional<int16> tune;
+		Optional<int8> pitch_keycenter;
+
+		// Amplifier
+		Optional<float> volume;
+		Optional<float> rt_decay;
+
+		// Amplifier EG
+		Optional<float> ampeg_attack;
+		Optional<float> ampeg_decay;
+		Optional<float> ampeg_sustain;
+		Optional<float> ampeg_release;
+
+		Optional<int8> sw_lokey;
+		Optional<int8> sw_hikey;
+		Optional<int8> sw_last;
+		Optional<int8> sw_default;
+
+		RegionSettingOpt combined(const RegionSettingOpt& weaker) const
+		{
+			RegionSettingOpt result;
+
+			result.sample = CombineOpt(sample, weaker.sample);
+
+			result.lovel = CombineOpt(lovel, weaker.lovel);
+			result.hivel = CombineOpt(hivel, weaker.hivel);
+			result.lokey = CombineOpt(lokey, weaker.lokey);
+			result.hikey = CombineOpt(hikey, weaker.hikey);
+			result.trigger = CombineOpt(trigger, weaker.trigger);
+
+			result.group = CombineOpt(group, weaker.group);
+			result.off_by = CombineOpt(off_by, weaker.off_by);
+			result.off_mode = CombineOpt(off_mode, weaker.off_mode);
+			result.off_time = CombineOpt(off_time, weaker.off_time);
+
+			result.polyphony = CombineOpt(polyphony, weaker.polyphony);
+			result.polyphony_count = CombineOpt(polyphony_count, weaker.polyphony_count);
+
+			result.offset = CombineOpt(offset, weaker.offset);
+			result.loopMode = CombineOpt(loopMode, weaker.loopMode);
+
+			result.tune = CombineOpt(tune, weaker.tune);
+			result.pitch_keycenter = CombineOpt(pitch_keycenter, weaker.pitch_keycenter);
+
+			result.volume = CombineOpt(volume, weaker.volume);
+			result.rt_decay = CombineOpt(rt_decay, weaker.rt_decay);
+
+			result.ampeg_attack = CombineOpt(ampeg_attack, weaker.ampeg_attack);
+			result.ampeg_decay = CombineOpt(ampeg_decay, weaker.ampeg_decay);
+			result.ampeg_sustain = CombineOpt(ampeg_sustain, weaker.ampeg_sustain);
+			result.ampeg_release = CombineOpt(ampeg_release, weaker.ampeg_release);
+
+			result.sw_lokey = CombineOpt(sw_lokey, weaker.sw_lokey);
+			result.sw_hikey = CombineOpt(sw_hikey, weaker.sw_hikey);
+			result.sw_last = CombineOpt(sw_last, weaker.sw_last);
+			result.sw_default = CombineOpt(sw_default, weaker.sw_default);
+
+			return result;
+		}
+
+		RegionSetting value() const
+		{
+			RegionSetting result;
+
+			if (sample) { result.sample = sample.value(); }
+
+			if (lovel) { result.lovel = lovel.value(); }
+			if (hivel) { result.hivel = hivel.value(); }
+			if (lokey) { result.lokey = lokey.value(); }
+			if (hikey) { result.hikey = hikey.value(); }
+			if (trigger) { result.trigger = trigger.value(); }
+
+			if (group) { result.group = group.value(); }
+			if (off_by) { result.off_by = off_by.value(); }
+			if (off_mode) { result.off_mode = off_mode.value(); }
+			if (off_time) { result.off_time = off_time.value(); }
+
+			if (polyphony) { result.polyphony = polyphony.value(); }
+			if (polyphony_count) { result.polyphony_count = polyphony_count.value(); }
+
+			if (offset) { result.offset = offset.value(); }
+			if (loopMode) { result.loopMode = loopMode.value(); }
+
+			if (tune) { result.tune = tune.value(); }
+			if (pitch_keycenter) { result.pitch_keycenter = pitch_keycenter.value(); }
+
+			if (volume) { result.volume = volume.value(); }
+			if (rt_decay) { result.rt_decay = rt_decay.value(); }
+
+			if (ampeg_attack) { result.ampeg_attack = ampeg_attack.value(); }
+			if (ampeg_decay) { result.ampeg_decay = ampeg_decay.value(); }
+			if (ampeg_sustain) { result.ampeg_sustain = ampeg_sustain.value(); }
+			if (ampeg_release) { result.ampeg_release = ampeg_release.value(); }
+
+			if (sw_lokey) { result.sw_lokey = sw_lokey.value(); }
+			if (sw_hikey) { result.sw_hikey = sw_hikey.value(); }
+			if (sw_last) { result.sw_last = sw_last.value(); }
+			if (sw_default) { result.sw_default = sw_default.value(); }
+
+			return result;
+		}
+	};
+
 }
 
 void RegionSetting::debugPrint() const
@@ -278,8 +437,16 @@ SfzData LoadSfz(FilePathView sfzPath)
 
 	TextReader sfzReader(sfzPath);
 
+	const String keyRegionHeader = U"<region>";
 	const String keyGroupHeader = U"<group>";
-	const String keyRegion = U"<region>";
+	//const String keyControlHeader = U"<control>";
+	const String keyGlobalHeader = U"<global>";
+	//const String keyCurveHeader = U"<curve>";
+	//const String keyEffectHeader = U"<effect>";
+	//const String keyMasterHeader = U"<master>";
+	//const String keyMidiHeader = U"<midi>";
+	//const String keySampleHeader = U"<sample>";
+
 	const String keySample = U"sample=";
 	const String keyLovel = U"lovel=";
 	const String keyHivel = U"hivel=";
@@ -306,6 +473,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 	const String keyOffMode = U"off_mode=";
 	const String keyOffTime = U"off_time=";
 	const String keyPolyphony = U"polyphony=";
+	const String keyLoopMode = U"loop_mode=";
 
 	const auto parentDirectory = FileSystem::ParentPath(sfzPath);
 	String defaultPath = parentDirectory;
@@ -313,12 +481,31 @@ SfzData LoadSfz(FilePathView sfzPath)
 	HashTable<String, String> macroDefinitions;
 	const auto text = Preprocess(RemoveComment(sfzReader.readAll()), parentDirectory, macroDefinitions);
 
+#ifdef DEVELOPMENT
 	TextWriter writer(U"debug/preprocessed.txt");
 	writer << text;
+#endif
+
+	SFZHeader header = SFZHeader::Global;
 
 	Array<RegionSetting> settings;
-	RegionSetting group;
-	Optional<RegionSetting> region;
+	RegionSettingOpt globalSetting;
+	RegionSettingOpt groupSetting;
+	Optional<RegionSettingOpt> regionSetting;
+
+	const auto setting = [&]()->RegionSettingOpt&
+	{
+		if (header == SFZHeader::Global)
+		{
+			return globalSetting;
+		}
+		else if (header == SFZHeader::Group)
+		{
+			return groupSetting;
+		}
+
+		return regionSetting.value();
+	};
 
 	HashSet<String> unsupportedOpcodes;
 
@@ -332,15 +519,41 @@ SfzData LoadSfz(FilePathView sfzPath)
 		if (token.empty())
 		{
 		}
-		else if (token.starts_with(keyRegion))
+		else if (token.starts_with(keyRegionHeader))
 		{
-			nextPos = pos + keyRegion.length() - 1;
-			if (region)
+			nextPos = pos + keyRegionHeader.length() - 1;
+			if (regionSetting)
 			{
-				settings.push_back(region.value());
-				region = none;
+				settings.push_back(regionSetting.value().value());
+				regionSetting = none;
 			}
-			region = group;
+
+			regionSetting = groupSetting.combined(globalSetting);
+			header = SFZHeader::Region;
+		}
+		else if (token.starts_with(keyGroupHeader))
+		{
+			nextPos = pos + keyGroupHeader.length() - 1;
+			if (regionSetting)
+			{
+				settings.push_back(regionSetting.value().value());
+				regionSetting = none;
+			}
+
+			groupSetting = RegionSettingOpt();
+			header = SFZHeader::Group;
+		}
+		else if (token.starts_with(keyGlobalHeader))
+		{
+			nextPos = pos + keyGlobalHeader.length() - 1;
+			if (regionSetting)
+			{
+				settings.push_back(regionSetting.value().value());
+				regionSetting = none;
+			}
+
+			globalSetting = RegionSettingOpt();
+			header = SFZHeader::Global;
 		}
 		else if (token.starts_with(keySample))
 		{
@@ -348,7 +561,7 @@ SfzData LoadSfz(FilePathView sfzPath)
 
 			if (token.starts_with(U"*"))
 			{
-				(region ? region.value() : group).sample = token;
+				setting().sample = token;
 			}
 			else
 			{
@@ -362,61 +575,65 @@ SfzData LoadSfz(FilePathView sfzPath)
 
 				if (FileSystem::IsFile(defaultPath + token))
 				{
-					(region ? region.value() : group).sample = token;
+					setting().sample = token;
 				}
 				else
 				{
 					Console << U"warning: not found sample \"" << (defaultPath + token) << U"\"";
 					Console << U"this region is skipped";
-					region = none;
+					regionSetting = none;
 				}
 			}
 		}
 		else if (token.starts_with(keyGroup))
 		{
-			(region ? region.value() : group).group = ParseInt<int32>(token.substr(keyGroup.length()));
+			setting().group = ParseInt<int32>(token.substr(keyGroup.length()));
+		}
+		else if (token.starts_with(keyLoopMode))
+		{
+			setting().loopMode = ParseLoopMode(token.substr(keyLoopMode.length()));
 		}
 		else if (token.starts_with(keyPolyphony))
 		{
 			const auto [polyType, polyCount] = ParsePolyphony(token.substr(keyPolyphony.length()));
-			(region ? region.value() : group).polyphony = polyType;
-			(region ? region.value() : group).polyphony_count = polyCount;
+			setting().polyphony = polyType;
+			setting().polyphony_count = polyCount;
 		}
 		else if (token.starts_with(keyOffBy))
 		{
-			(region ? region.value() : group).off_by = ParseInt<int32>(token.substr(keyOffBy.length()));
+			setting().off_by = ParseInt<int32>(token.substr(keyOffBy.length()));
 		}
 		else if (token.starts_with(keyOffMode))
 		{
-			(region ? region.value() : group).off_mode = ParseOffMode(token.substr(keyOffMode.length()));
+			setting().off_mode = ParseOffMode(token.substr(keyOffMode.length()));
 		}
 		else if (token.starts_with(keyOffTime))
 		{
-			(region ? region.value() : group).off_time = ParseFloat<float>(token.substr(keyOffTime.length()));
+			setting().off_time = ParseFloat<float>(token.substr(keyOffTime.length()));
 		}
 		else if (token.starts_with(keySwLoKey))
 		{
-			(region ? region.value() : group).sw_lokey = ParseInt<int8>(token.substr(keySwLoKey.length()));
+			setting().sw_lokey = ParseInt<int8>(token.substr(keySwLoKey.length()));
 		}
 		else if (token.starts_with(keySwHiKey))
 		{
-			(region ? region.value() : group).sw_hikey = ParseInt<int8>(token.substr(keySwHiKey.length()));
+			setting().sw_hikey = ParseInt<int8>(token.substr(keySwHiKey.length()));
 		}
 		else if (token.starts_with(keySwDefault))
 		{
-			(region ? region.value() : group).sw_default = ParseInt<int8>(token.substr(keySwDefault.length()));
+			setting().sw_default = ParseInt<int8>(token.substr(keySwDefault.length()));
 		}
 		else if (token.starts_with(keySwLast))
 		{
-			(region ? region.value() : group).sw_last = ParseInt<int8>(token.substr(keySwLast.length()));
+			setting().sw_last = ParseInt<int8>(token.substr(keySwLast.length()));
 		}
 		else if (token.starts_with(keyLovel))
 		{
-			(region ? region.value() : group).lovel = ParseInt<uint8>(token.substr(keyLovel.length()));
+			setting().lovel = ParseInt<uint8>(token.substr(keyLovel.length()));
 		}
 		else if (token.starts_with(keyHivel))
 		{
-			(region ? region.value() : group).hivel = ParseInt<uint8>(token.substr(keyHivel.length()));
+			setting().hivel = ParseInt<uint8>(token.substr(keyHivel.length()));
 		}
 		else if (token.starts_with(keyDefaultPath))
 		{
@@ -427,15 +644,15 @@ SfzData LoadSfz(FilePathView sfzPath)
 			const auto keyStr = token.substr(keyKey.length());
 			if (auto optKey = ParseIntOpt<uint8>(keyStr))
 			{
-				(region ? region.value() : group).lokey = optKey.value();
-				(region ? region.value() : group).hikey = optKey.value();
-				(region ? region.value() : group).pitch_keycenter = optKey.value();
+				setting().lokey = optKey.value();
+				setting().hikey = optKey.value();
+				setting().pitch_keycenter = optKey.value();
 			}
 			else if (auto optKeyName = ParseMidiKey(keyStr))
 			{
-				(region ? region.value() : group).lokey = optKeyName.value();
-				(region ? region.value() : group).hikey = optKeyName.value();
-				(region ? region.value() : group).pitch_keycenter = optKeyName.value();
+				setting().lokey = optKeyName.value();
+				setting().hikey = optKeyName.value();
+				setting().pitch_keycenter = optKeyName.value();
 			}
 			else
 			{
@@ -447,11 +664,11 @@ SfzData LoadSfz(FilePathView sfzPath)
 			const auto keyStr = token.substr(keyLokey.length());
 			if (auto optKey = ParseIntOpt<uint8>(keyStr))
 			{
-				(region ? region.value() : group).lokey = optKey.value();
+				setting().lokey = optKey.value();
 			}
 			else if (auto optKeyName = ParseMidiKey(keyStr))
 			{
-				(region ? region.value() : group).lokey = optKeyName.value();
+				setting().lokey = optKeyName.value();
 			}
 			else
 			{
@@ -463,11 +680,11 @@ SfzData LoadSfz(FilePathView sfzPath)
 			const auto keyStr = token.substr(keyHikey.length());
 			if (auto optKey = ParseIntOpt<uint8>(keyStr))
 			{
-				(region ? region.value() : group).hikey = optKey.value();
+				setting().hikey = optKey.value();
 			}
 			else if (auto optKeyName = ParseMidiKey(keyStr))
 			{
-				(region ? region.value() : group).hikey = optKeyName.value();
+				setting().hikey = optKeyName.value();
 			}
 			else
 			{
@@ -479,11 +696,11 @@ SfzData LoadSfz(FilePathView sfzPath)
 			const auto keyStr = token.substr(keyPitchKeycenter.length());
 			if (auto optKey = ParseIntOpt<uint8>(keyStr))
 			{
-				(region ? region.value() : group).pitch_keycenter = optKey.value();
+				setting().pitch_keycenter = optKey.value();
 			}
 			else if (auto optKeyName = ParseMidiKey(keyStr))
 			{
-				(region ? region.value() : group).pitch_keycenter = optKeyName.value();
+				setting().pitch_keycenter = optKeyName.value();
 			}
 			else
 			{
@@ -492,53 +709,43 @@ SfzData LoadSfz(FilePathView sfzPath)
 		}
 		else if (token.starts_with(keyOffset))
 		{
-			(region ? region.value() : group).offset = ParseInt<uint32>(token.substr(keyOffset.length()));
+			setting().offset = ParseInt<uint32>(token.substr(keyOffset.length()));
 		}
 		else if (token.starts_with(keyTune))
 		{
-			(region ? region.value() : group).tune = ParseInt<int16>(token.substr(keyTune.length()));
+			setting().tune = ParseInt<int16>(token.substr(keyTune.length()));
 		}
 		else if (token.starts_with(keyVolume))
 		{
-			(region ? region.value() : group).volume = ParseFloat<float>(token.substr(keyVolume.length()));
+			setting().volume = ParseFloat<float>(token.substr(keyVolume.length()));
 		}
 		else if (token.starts_with(keyRtDecay))
 		{
-			(region ? region.value() : group).rt_decay = ParseFloat<float>(token.substr(keyRtDecay.length()));
-		}
-		else if (token.starts_with(keyGroupHeader))
-		{
-			nextPos = pos + keyRegion.length() - 1;
-			if (region)
-			{
-				settings.push_back(region.value());
-				region = none;
-			}
-
-			group = RegionSetting();
+			setting().rt_decay = ParseFloat<float>(token.substr(keyRtDecay.length()));
 		}
 		else if (token.starts_with(keyTrigger))
 		{
-			(region ? region.value() : group).trigger = ParseTrigger(token.substr(keyTrigger.length()));
+			setting().trigger = ParseTrigger(token.substr(keyTrigger.length()));
 		}
 		else if (token.starts_with(keyAmpegAttack))
 		{
-			(region ? region.value() : group).ampeg_attack = ParseFloat<float>(token.substr(keyAmpegAttack.length()));
+			setting().ampeg_attack = ParseFloat<float>(token.substr(keyAmpegAttack.length()));
 		}
 		else if (token.starts_with(keyAmpegDecay))
 		{
-			(region ? region.value() : group).ampeg_decay = ParseFloat<float>(token.substr(keyAmpegDecay.length()));
+			setting().ampeg_decay = ParseFloat<float>(token.substr(keyAmpegDecay.length()));
 		}
 		else if (token.starts_with(keyAmpegSustain))
 		{
-			(region ? region.value() : group).ampeg_sustain = ParseFloat<float>(token.substr(keyAmpegSustain.length()));
+			setting().ampeg_sustain = ParseFloat<float>(token.substr(keyAmpegSustain.length()));
 		}
 		else if (token.starts_with(keyAmpegRelease))
 		{
-			(region ? region.value() : group).ampeg_release = ParseFloat<float>(token.substr(keyAmpegRelease.length()));
+			setting().ampeg_release = ParseFloat<float>(token.substr(keyAmpegRelease.length()));
 		}
 		else
 		{
+#ifdef DEVELOPMENT
 			if (!token.includes(U"label"))
 			{
 				const auto equalPos = token.indexOf(U'=');
@@ -556,14 +763,15 @@ SfzData LoadSfz(FilePathView sfzPath)
 					Console << U"(" << pos << U":" << nextPos << U") unknown token: \"" << token << U"\"";
 				}
 			}
+#endif
 		}
 
 		if (nextPos == String::npos)
 		{
-			if (region)
+			if (regionSetting)
 			{
-				settings.push_back(region.value());
-				region = none;
+				settings.push_back(regionSetting.value().value());
+				regionSetting = none;
 			}
 
 			break;

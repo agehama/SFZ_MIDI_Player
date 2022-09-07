@@ -45,7 +45,7 @@ namespace
 	}
 }
 
-void Program::loadProgram(const SfzData& sfzData)
+void Program::loadProgram(const SfzData& sfzData, float masterVolume)
 {
 	if (m_audioKeys.size() != 255)
 	{
@@ -79,7 +79,9 @@ void Program::loadProgram(const SfzData& sfzData)
 		{
 			if (!FileSystem::IsFile(samplePath))
 			{
+#ifdef DEVELOPMENT
 				Console << U"error: file does not exist: \"" << samplePath << U"\"";
+#endif
 				continue;
 			}
 
@@ -88,7 +90,7 @@ void Program::loadProgram(const SfzData& sfzData)
 
 		const Envelope envelope(data.ampeg_attack, data.ampeg_decay, data.ampeg_sustain / 100.0, data.ampeg_release);
 
-		const float volume = data.volume;
+		const float volume = data.volume + masterVolume;
 		const float amplitude = static_cast<float>(std::pow(10.0, volume / 20.0) * 0.5);
 
 		const int32 loIndex = data.lokey + 127;
@@ -112,11 +114,8 @@ void Program::loadProgram(const SfzData& sfzData)
 				source.setOscillator(oscType, frequency);
 			}
 
-			if (data.polyphony != PolyphonyType::None)
-			{
-				source.setPolyphony(data.polyphony, data.polyphony_count);
-			}
-
+			source.setPolyphony(data.polyphony, data.polyphony_count);
+			source.setLoopMode(data.loopMode);
 			source.setSwitch(data.sw_lokey, data.sw_hikey, data.sw_last, data.sw_default);
 
 			float offTime = 0.006f;
@@ -141,11 +140,6 @@ void Program::loadProgram(const SfzData& sfzData)
 			}
 		}
 	}
-
-	//for (const auto& key : m_audioKeys)
-	//{
-	//	key.debugPrint();
-	//}
 }
 
 void Program::clearEvent()

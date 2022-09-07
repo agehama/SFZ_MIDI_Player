@@ -132,8 +132,18 @@ void SamplePlayer::loadSoundSet(FilePathView soundSetTomlPath)
 			continue;
 		}
 
+		const auto volumeVal = instrument[U"volume"];
+		float volume = 0.0f;
+		if (!volumeVal.isEmpty())
+		{
+			if (auto opt = volumeVal.getOpt<float>())
+			{
+				volume = opt.value();
+			}
+		}
+
 		Program soundProgram;
-		soundProgram.loadProgram(LoadSfz(sourcePath));
+		soundProgram.loadProgram(LoadSfz(sourcePath), volume);
 
 		const auto typeStr = instrument[U"type"].getString();
 		const auto type = ParseInstrumentType(typeStr);
@@ -145,7 +155,7 @@ void SamplePlayer::loadSoundSet(FilePathView soundSetTomlPath)
 			const auto programNumberList = ParseProgramNumber(programStr);
 			for (auto num : programNumberList)
 			{
-				const auto programIndex = static_cast<int8>(num) - 1;
+				const auto programIndex = static_cast<int32>(num) - 1;
 				m_programChangeNumberToSoundSetIndex[programIndex] = soundSetIndex;
 			}
 
