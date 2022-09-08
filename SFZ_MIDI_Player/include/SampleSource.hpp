@@ -2,36 +2,22 @@
 #include <Siv3D.hpp>
 #include "SFZLoader.hpp"
 
-struct KeyDownEvent
-{
-	int8 key;
-	int64 pressTimePos;
-	uint8 velocity;
-
-	KeyDownEvent() = delete;
-	KeyDownEvent(int8 key, int64 pressTimePos, uint8 velocity) :
-		key(key),
-		pressTimePos(pressTimePos),
-		velocity(velocity)
-	{}
-};
-
 struct NoteEvent
 {
-	int64 attackIndex;
-	int64 releaseIndex;
 	int64 pressTimePos;
 	int64 releaseTimePos;
+	uint8 key;
 	uint8 velocity;
 
+	int64 attackIndex = -1;
+	int64 releaseIndex = -1;
 	Optional<int64> disableTimePos;
 
 	NoteEvent() = delete;
-	NoteEvent(int64 attackIndex, int64 releaseIndex, int64 pressTimePos, int64 releaseTimePos, uint8 velocity) :
-		attackIndex(attackIndex),
-		releaseIndex(releaseIndex),
+	NoteEvent(int64 pressTimePos, int64 releaseTimePos, uint8 key, uint8 velocity) :
 		pressTimePos(pressTimePos),
 		releaseTimePos(releaseTimePos),
+		key(key),
 		velocity(velocity)
 	{}
 };
@@ -115,7 +101,7 @@ public:
 		return m_lovel <= velocity && velocity <= m_hivel;
 	}
 
-	bool isValidSwLast(int64 pressTimePos, const Array<KeyDownEvent>& history) const;
+	bool isValidSwLast(int64 pressTimePos, const Array<NoteEvent>& history) const;
 
 	void setRtDecay(float rtDecay);
 
@@ -191,11 +177,12 @@ public:
 
 	bool hasAttackKey() const;
 
-	const NoteEvent& addEvent(uint8 velocity, int64 pressTimePos, int64 releaseTimePos, const Array<KeyDownEvent>& history);
+	//const NoteEvent& addEvent(uint8 velocity, int64 pressTimePos, int64 releaseTimePos, const Array<NoteEvent>& history);
+	void addEvent(const NoteEvent& noteEvent);
 
 	void clearEvent();
 
-	int64 getAttackIndex(uint8 velocity, int64 pressTimePos, const Array<KeyDownEvent>& history) const;
+	int64 getAttackIndex(uint8 velocity, int64 pressTimePos, const Array<NoteEvent>& history) const;
 
 	const AudioSource& getAttackKey(int64 attackIndex) const;
 
@@ -203,7 +190,7 @@ public:
 
 	void debugPrint() const;
 
-	void sortEvent();
+	//void sortEvent();
 
 	void deleteDuplicate();
 
