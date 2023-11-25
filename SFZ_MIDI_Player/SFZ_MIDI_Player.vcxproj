@@ -49,16 +49,16 @@
     <IntDir>$(SolutionDir)Intermediate\$(ProjectName)\Debug\Intermediate\</IntDir>
     <TargetName>$(ProjectName)(debug)</TargetName>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)App</LocalDebuggerWorkingDirectory>
-    <IncludePath>$(SIV3D_0_6_13)\include;$(SIV3D_0_6_13)\include\ThirdParty;$(ProjectDir)external\flac\include;$(ProjectDir)include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SIV3D_0_6_13)\lib\Windows;$(ProjectDir)external\flac\lib\Debug;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SIV3D_0_6_13)\include;$(SIV3D_0_6_13)\include\ThirdParty;$(ProjectDir)external\flac\include;$(ProjectDir)include;$(ProjectDir)external\libremidi\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SIV3D_0_6_13)\lib\Windows;$(ProjectDir)external\flac\lib\Debug;$(ProjectDir)external\libremidi\lib\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)Intermediate\$(ProjectName)\Release\</OutDir>
     <IntDir>$(SolutionDir)Intermediate\$(ProjectName)\Release\Intermediate\</IntDir>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)App</LocalDebuggerWorkingDirectory>
-    <IncludePath>$(SIV3D_0_6_13)\include;$(SIV3D_0_6_13)\include\ThirdParty;$(ProjectDir)external\flac\include;$(ProjectDir)include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SIV3D_0_6_13)\lib\Windows;$(ProjectDir)external\flac\lib\Release;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SIV3D_0_6_13)\include;$(SIV3D_0_6_13)\include\ThirdParty;$(ProjectDir)external\flac\include;$(ProjectDir)include;$(ProjectDir)external\libremidi\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SIV3D_0_6_13)\lib\Windows;$(ProjectDir)external\flac\lib\Release;$(ProjectDir)external\libremidi\lib\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -80,7 +80,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <DelayLoadDLLs>advapi32.dll;crypt32.dll;dwmapi.dll;gdi32.dll;imm32.dll;ole32.dll;oleaut32.dll;opengl32.dll;shell32.dll;shlwapi.dll;user32.dll;winmm.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
-      <AdditionalDependencies>FLAC.lib;FLAC++.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>FLAC.lib;FLAC++.lib;libremidi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /I /D /Y "$(OutDir)$(TargetFileName)" "$(ProjectDir)App"</Command>
@@ -110,7 +110,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <DelayLoadDLLs>advapi32.dll;crypt32.dll;dwmapi.dll;gdi32.dll;imm32.dll;ole32.dll;oleaut32.dll;opengl32.dll;shell32.dll;shlwapi.dll;user32.dll;winmm.dll;ws2_32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
-      <AdditionalDependencies>FLAC.lib;FLAC++.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>FLAC.lib;FLAC++.lib;libremidi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /I /D /Y "$(OutDir)$(TargetFileName)" "$(ProjectDir)App"</Command>
