@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
+#include <libremidi/libremidi.hpp>
 
 struct SfzData;
 class PianoRoll;
@@ -10,15 +11,19 @@ struct NoteEvent;
 class AudioKey;
 class Program;
 
+struct KeyData
+{
+	uint8 key = 0;
+	bool note_on = true;
+};
+
 class SamplePlayer
 {
 public:
 
 	SamplePlayer() = default;
 
-	SamplePlayer(const Rect& area) :
-		m_area(area)
-	{}
+	SamplePlayer(const Rect& area);
 
 	void loadSoundSet(FilePathView soundSetTomlPath);
 
@@ -44,6 +49,8 @@ public:
 
 	void getSamples(float* left, float* right, int64 startPos, int64 sampleCount);
 
+	void updateInput();
+
 private:
 
 	Program* refProgram(const TrackData& trackData);
@@ -60,4 +67,10 @@ private:
 	// [-1, 9]
 	int m_octaveMin = 1;
 	int m_octaveMax = 7;
+
+	libremidi::observer m_observer;
+	std::unique_ptr<libremidi::midi_in> m_midiin;
+	std::mutex m_mutex;
+	std::deque<KeyData> m_key_data;
+	Array<uint8> m_key_on = Array<uint8>{ 128 };
 };

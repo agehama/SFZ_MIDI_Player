@@ -159,6 +159,7 @@ void Main()
 		if (midiData)
 		{
 			pianoRoll.updateTick(midiData.value());
+			player.updateInput();
 		}
 
 #ifdef LAYOUT_HORIZONTAL

@@ -99,6 +99,41 @@ namespace
 	}
 }
 
+SamplePlayer::SamplePlayer(const Rect& area) :
+	m_area(area)
+{
+	auto inputs = m_observer.get_input_ports();
+	if (1 <= inputs.size())
+	{
+		const auto callback = [&](const libremidi::message& message)
+		{
+			m_mutex.lock();
+
+			switch (static_cast<libremidi::message_type>(message.get_message_type()))
+			{
+			case libremidi::message_type::NOTE_OFF:
+				m_key_data.push_back({ message.bytes[1], false });
+				break;
+			case libremidi::message_type::NOTE_ON:
+				m_key_data.push_back({ message.bytes[1], true });
+				break;
+			default:
+				break;
+			}
+
+			m_mutex.unlock();
+		};
+
+		const libremidi::input_configuration input_config{ .on_message = callback };
+		m_midiin = std::make_unique<libremidi::midi_in>(input_config, libremidi::midi_in_configuration_for(m_observer));
+		m_midiin->open_port(inputs[0]);
+		if (!m_midiin->is_port_connected())
+		{
+			Console << U"Failed to connect to MIDI input port\n";
+		}
+	}
+}
+
 void SamplePlayer::loadSoundSet(FilePathView soundSetTomlPath)
 {
 	TOMLReader soundSetReader(soundSetTomlPath);
@@ -384,6 +419,11 @@ void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const Optional<Mid
 			rect.draw(blendColor);
 		}
 
+		if (m_key_on[key] == 1)
+		{
+			rect.draw(Palette::Yellow);
+		}
+
 		rect.drawFrame(1, frameColor);
 
 		if (noteIndex == 0)
@@ -417,7 +457,13 @@ void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const Optional<Mid
 			ColorF color0 = color00.lerp(color01, t);
 			ColorF color1 = Color(180, 180, 180);
 			ColorF blendColor(Math::Saturate(color0.toVec4() / (Vec4::One() - color1.toVec4() * Min(0.999, t))).xyz());
+
 			rect.draw(blendColor);
+		}
+
+		if (m_key_on[key] == 1)
+		{
+			rect.draw(Palette::Yellow);
 		}
 
 		rect.drawFrame(1, frameColor);
@@ -517,4 +563,18 @@ Program* SamplePlayer::refProgram(const TrackData& trackData)
 	}
 
 	return nullptr;
+}
+
+void SamplePlayer::updateInput()
+{
+	m_mutex.lock();
+	if (!m_key_data.empty())
+	{
+		const auto& note = m_key_data.front();
+
+		m_key_on[note.key] = note.note_on ? 1 : 0;
+
+		m_key_data.pop_front();
+	}
+	m_mutex.unlock();
 }
