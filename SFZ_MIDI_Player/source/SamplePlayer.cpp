@@ -424,7 +424,7 @@ void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const Optional<Mid
 	}
 }
 
-Array<std::pair<uint8, NoteEvent>> SamplePlayer::loadMidiData(const MidiData& midiData)
+Array<NoteEvent> SamplePlayer::loadMidiData(const MidiData& midiData)
 {
 	for (auto& program: m_soundSet)
 	{
@@ -436,25 +436,25 @@ Array<std::pair<uint8, NoteEvent>> SamplePlayer::loadMidiData(const MidiData& mi
 		program.clearEvent();
 	}
 
-	for (const auto& track : midiData.notes())
-	{
-		if (auto programPtr = refProgram(track))
-		{
-			programPtr->addKeyDownEvents(midiData, track);
-		}
-	}
+	//for (const auto& track : midiData.notes())
+	//{
+	//	if (auto programPtr = refProgram(track))
+	//	{
+	//		programPtr->addKeyDownEvents(midiData, track);
+	//	}
+	//}
 
-	for (auto& program : m_soundSet)
-	{
-		program.sortKeyDownEvents();
-	}
+	//for (auto& program : m_soundSet)
+	//{
+	//	program.sortKeyDownEvents();
+	//}
 
-	for (auto& program : m_drumKit)
-	{
-		program.sortKeyDownEvents();
-	}
+	//for (auto& program : m_drumKit)
+	//{
+	//	program.sortKeyDownEvents();
+	//}
 
-	Array<std::pair<uint8, NoteEvent>> results;
+	Array<NoteEvent> results;
 
 	for (const auto& track : midiData.notes())
 	{
@@ -468,15 +468,19 @@ Array<std::pair<uint8, NoteEvent>> SamplePlayer::loadMidiData(const MidiData& mi
 	for (auto& program : m_soundSet)
 	{
 		program.sortEvent();
+		program.resolveKeyIndex();
 		program.deleteDuplicate();
 		program.calculateOffTime();
+		program.setEachKeyEvent();
 	}
 
 	for (auto& program : m_drumKit)
 	{
 		program.sortEvent();
+		program.resolveKeyIndex();
 		program.deleteDuplicate();
 		program.calculateOffTime();
+		program.setEachKeyEvent();
 	}
 
 	return results;

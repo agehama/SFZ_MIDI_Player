@@ -86,7 +86,16 @@ void AudioSource::setLoopMode(LoopMode loopMode)
 	}
 }
 
-bool AudioSource::isValidSwLast(int64 pressTimePos, const Array<KeyDownEvent>& history) const
+void AudioSource::setPolyphony(PolyphonyType type, uint8 polyphonyCount)
+{
+	if (type != PolyphonyType::None)
+	{
+		m_polyphonyType = type;
+		m_polyphonyCount = polyphonyCount;
+	}
+}
+
+bool AudioSource::isValidSwLast(int64 pressTimePos, const Array<NoteEvent>& history) const
 {
 	// 未設定の場合
 	if (!m_swLast || !m_swLokey || !m_swHikey)
@@ -311,21 +320,25 @@ bool AudioKey::hasAttackKey() const
 	return !attackKeys.empty();
 }
 
-const NoteEvent& AudioKey::addEvent(uint8 velocity, int64 pressTimePos, int64 releaseTimePos, const Array<KeyDownEvent>& history)
+void AudioKey::addEvent(const NoteEvent& noteEvent)
 {
-	const auto attackIndex = getAttackIndex(velocity, pressTimePos, history);
-	const auto releaseIndex = getReleaseIndex(velocity);
-	NoteEvent note(attackIndex, releaseIndex, pressTimePos, releaseTimePos, velocity);
-	m_noteEvents.push_back(note);
-	return m_noteEvents.back();
+	m_noteEvents.push_back(noteEvent);
 }
+//const NoteEvent& AudioKey::addEvent(uint8 velocity, int64 pressTimePos, int64 releaseTimePos, const Array<NoteEvent>& history)
+//{
+//	const auto attackIndex = getAttackIndex(velocity, pressTimePos, history);
+//	const auto releaseIndex = getReleaseIndex(velocity);
+//	NoteEvent note(attackIndex, releaseIndex, pressTimePos, releaseTimePos, velocity);
+//	m_noteEvents.push_back(note);
+//	return m_noteEvents.back();
+//}
 
 void AudioKey::clearEvent()
 {
 	m_noteEvents.clear();
 }
 
-int64 AudioKey::getAttackIndex(uint8 velocity, int64 pressTimePos, const Array<KeyDownEvent>& history) const
+int64 AudioKey::getAttackIndex(uint8 velocity, int64 pressTimePos, const Array<NoteEvent>& history) const
 {
 	for (auto [i, key] : Indexed(attackKeys))
 	{
@@ -372,10 +385,10 @@ void AudioKey::debugPrint() const
 	}
 }
 
-void AudioKey::sortEvent()
-{
-	m_noteEvents.sort_by([](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
-}
+//void AudioKey::sortEvent()
+//{
+//	m_noteEvents.sort_by([](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
+//}
 
 void AudioKey::deleteDuplicate()
 {

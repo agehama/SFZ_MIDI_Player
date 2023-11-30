@@ -5,7 +5,6 @@ struct SfzData;
 class PianoRoll;
 class TrackData;
 class MidiData;
-struct KeyDownEvent;
 struct NoteEvent;
 class AudioKey;
 class Program;
@@ -40,7 +39,7 @@ public:
 
 	void drawHorizontal(const PianoRoll& pianoroll, const Optional<MidiData>& midiData) const;
 
-	Array<std::pair<uint8, NoteEvent>> loadMidiData(const MidiData& midiData);
+	Array<NoteEvent> loadMidiData(const MidiData& midiData);
 
 	void getSamples(float* left, float* right, int64 startPos, int64 sampleCount);
 

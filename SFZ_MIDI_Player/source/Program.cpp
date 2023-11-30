@@ -9,34 +9,40 @@
 
 namespace
 {
-	// 戻り値：[beginIndex, endIndex)
-	Optional<std::pair<uint32, uint32>> GetRangeEventIndex(const Array<KeyDownEvent>& keyDownEvents, int64 rangeBegin, int64 rangeEnd)
-	{
-		// 同時刻も有効範囲に含めたいので-1のupper_boundを取る
-		KeyDownEvent e0(0, rangeBegin - 1, 0);
-		auto beginIt = std::upper_bound(keyDownEvents.begin(), keyDownEvents.end(), e0,
-			[](const KeyDownEvent& a, const KeyDownEvent& b) { return a.pressTimePos < b.pressTimePos; });
+	//// 戻り値：[beginIndex, endIndex)
+	//Optional<std::pair<uint32, uint32>> GetRangeEventIndex(const Array<KeyDownEvent>& keyDownEvents, int64 rangeBegin, int64 rangeEnd)
+	//{
+	//	// 同時刻も有効範囲に含めたいので-1のupper_boundを取る
+	//	KeyDownEvent e0(0, rangeBegin - 1, 0);
+	//	auto beginIt = std::upper_bound(keyDownEvents.begin(), keyDownEvents.end(), e0,
+	//		[](const KeyDownEvent& a, const KeyDownEvent& b) { return a.pressTimePos < b.pressTimePos; });
 
-		if (beginIt == keyDownEvents.end())
-		{
-			return none;
-		}
+	//	if (beginIt == keyDownEvents.end())
+	//	{
+	//		return none;
+	//	}
 
-		// todo: ノートオフ以降のoff_byは無視しているが、これで正しいのか？
-		KeyDownEvent e1(0, rangeEnd, 0);
-		auto nextEndIt = std::upper_bound(keyDownEvents.begin(), keyDownEvents.end(), e1,
-			[](const KeyDownEvent& a, const KeyDownEvent& b) { return a.pressTimePos < b.pressTimePos; });
+	//	// todo: ノートオフ以降のoff_byは無視しているが、これで正しいのか？
+	//	KeyDownEvent e1(0, rangeEnd, 0);
+	//	auto nextEndIt = std::upper_bound(keyDownEvents.begin(), keyDownEvents.end(), e1,
+	//		[](const KeyDownEvent& a, const KeyDownEvent& b) { return a.pressTimePos < b.pressTimePos; });
 
-		if (nextEndIt == keyDownEvents.begin())
-		{
-			return none;
-		}
+	//	if (nextEndIt == keyDownEvents.begin())
+	//	{
+	//		return none;
+	//	}
 
-		const auto index0 = static_cast<uint32>(std::distance(keyDownEvents.begin(), beginIt));
-		const auto index1 = static_cast<uint32>(std::distance(keyDownEvents.begin(), nextEndIt));
+	//	const auto index0 = static_cast<uint32>(std::distance(keyDownEvents.begin(), beginIt));
+	//	const auto index1 = static_cast<uint32>(std::distance(keyDownEvents.begin(), nextEndIt));
 
-		return std::make_pair(index0, index1);
-	}
+	//	return std::make_pair(index0, index1);
+	//}
+
+	//int64 findOffTime(const Array<KeyDownEvent>& keyDownEvents, uint32 indexBegin, uint32 indexEnd, AudioSource& attackKey)
+	//{
+	//	keyDownEvents;
+	//	attackKey;
+	//}
 }
 
 void Program::loadProgram(const SfzData& sfzData, float masterVolume)
@@ -108,6 +114,7 @@ void Program::loadProgram(const SfzData& sfzData, float masterVolume)
 				source.setOscillator(oscType, frequency);
 			}
 
+			source.setPolyphony(data.polyphony, data.polyphony_count);
 			source.setLoopMode(data.loopMode);
 			source.setSwitch(data.sw_lokey, data.sw_hikey, data.sw_last, data.sw_default);
 
@@ -142,30 +149,32 @@ void Program::clearEvent()
 		m_audioKeys[index].clearEvent();
 	}
 
-	m_keyDownEvents.clear();
+	//m_keyDownEvents.clear();
+	m_noteEvents.clear();
 }
 
-void Program::addKeyDownEvents(const MidiData& midiData, const TrackData& trackData)
+//void Program::addKeyDownEvents(const MidiData& midiData, const TrackData& trackData)
+//{
+//	for (const auto& note : trackData.notes())
+//	{
+//		const int64 beginTick = note.tick;
+//		const int64 endTick = note.tick + note.gate;
+//		const double beginSec = midiData.ticksToSeconds(beginTick);
+//		const double endSec = midiData.ticksToSeconds(endTick);
+//		const int64 pressTimePos = static_cast<int64>(Math::Round(beginSec * Wave::DefaultSampleRate));
+//		const int64 releaseTimePos = static_cast<int64>(Math::Round(endSec * Wave::DefaultSampleRate));
+//
+//		m_keyDownEvents.emplace_back(note.key, pressTimePos, note.velocity);
+//	}
+//}
+//
+//void Program::sortKeyDownEvents()
+//{
+//	m_keyDownEvents.sort_by([](const KeyDownEvent& a, const KeyDownEvent& b) { return a.pressTimePos < b.pressTimePos; });
+//}
+
+const Array<NoteEvent>& Program::addEvents(const MidiData& midiData, const TrackData& trackData)
 {
-	for (const auto& note : trackData.notes())
-	{
-		const int64 beginTick = note.tick;
-		const double beginSec = midiData.ticksToSeconds(beginTick);
-		const int64 pressTimePos = static_cast<int64>(Math::Round(beginSec * Wave::DefaultSampleRate));
-
-		m_keyDownEvents.emplace_back(note.key, pressTimePos, note.velocity);
-	}
-}
-
-void Program::sortKeyDownEvents()
-{
-	m_keyDownEvents.sort_by([](const KeyDownEvent& a, const KeyDownEvent& b) { return a.pressTimePos < b.pressTimePos; });
-}
-
-Array<std::pair<uint8, NoteEvent>> Program::addEvents(const MidiData& midiData, const TrackData& trackData)
-{
-	Array<std::pair<uint8, NoteEvent>> results;
-
 	for (const auto& note : trackData.notes())
 	{
 		const int64 beginTick = note.tick;
@@ -177,20 +186,38 @@ Array<std::pair<uint8, NoteEvent>> Program::addEvents(const MidiData& midiData, 
 		const int64 pressTimePos = static_cast<int64>(Math::Round(beginSec * Wave::DefaultSampleRate));
 		const int64 releaseTimePos = static_cast<int64>(Math::Round(endSec * Wave::DefaultSampleRate));
 
-		const NoteEvent noteEvent = addEvent(note.key, note.velocity, pressTimePos, releaseTimePos, m_keyDownEvents);
-		results.push_back(std::make_pair(note.key, noteEvent));
+		NoteEvent noteEvent(pressTimePos, releaseTimePos, note.key, note.velocity);
+		m_noteEvents.push_back(noteEvent);
 	}
 
-	return results;
+	return m_noteEvents;
 }
 
 void Program::sortEvent()
 {
-	for (uint8 index = 127; index < 255; ++index)
+	m_noteEvents.sort_by([](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
+	//for (uint8 index = 127; index < 255; ++index)
+	//{
+	//	if (m_audioKeys[index].hasAttackKey())
+	//	{
+	//		m_audioKeys[index].sortEvent();
+	//	}
+	//}
+}
+
+void Program::resolveKeyIndex()
+{
+	for (auto& noteEvent : m_noteEvents)
 	{
-		if (m_audioKeys[index].hasAttackKey())
+		const auto keyIndex = noteEvent.key + 127;
+		const auto& key = m_audioKeys[keyIndex];
+
+		if (key.hasAttackKey())
 		{
-			m_audioKeys[index].sortEvent();
+			const auto attackIndex = key.getAttackIndex(noteEvent.velocity, noteEvent.pressTimePos, m_noteEvents);
+			const auto releaseIndex = key.getReleaseIndex(noteEvent.velocity);
+			noteEvent.attackIndex = attackIndex;
+			noteEvent.releaseIndex = releaseIndex;
 		}
 	}
 }
@@ -209,60 +236,102 @@ void Program::deleteDuplicate()
 void Program::calculateOffTime()
 {
 	// off_byによるdisableTimeが決まるのは、sw_*などを考慮して各イベントに対応するAudioSourceが決まった後
-	for (uint8 index = 127; index < 255; ++index)
+
+	for (auto& noteEvent : m_noteEvents)
 	{
-		const auto key = index - 127;
-		if (m_audioKeys[index].hasAttackKey())
+		if (noteEvent.attackIndex == -1)
 		{
-			//m_audioKeys[index].sortEvent();
-			auto& events = m_audioKeys[index].noteEvents();
+			continue;
+		}
 
-			for (auto& noteEvent : events)
+		const auto& audioKey = m_audioKeys[noteEvent.key + 127];
+		const auto& attackKey = audioKey.getAttackKey(noteEvent.attackIndex);
+
+		if (auto rangeOpt = bothEventIndexRange(noteEvent.pressTimePos, noteEvent.releaseTimePos))
+		{
+			const auto [beginIndex, endIndex] = rangeOpt.value();
+
+			// polyphonyによるノートオフ
+			if (attackKey.isPolyphony())
 			{
-				if (noteEvent.attackIndex == -1)
+				if (attackKey.polyphonyType() == PolyphonyType::Count)
 				{
-					continue;
-				}
-
-				const auto& audioKey = m_audioKeys[key + 127];
-				const auto& attackKey = audioKey.getAttackKey(noteEvent.attackIndex);
-				const auto off_by = attackKey.offBy();
-				if (off_by == 0)
-				{
-					continue;
-				}
-
-				if (auto rangeOpt = GetRangeEventIndex(m_keyDownEvents, noteEvent.pressTimePos, noteEvent.releaseTimePos))
-				{
-					const auto [beginIndex, endIndex] = rangeOpt.value();
-
-					for (uint32 i = beginIndex; i < endIndex; ++i)
+					if (2 <= attackKey.polyphonyCount())
 					{
-						const auto& followKeyDown = m_keyDownEvents[i];
 
-						// 自分自身だったら無視
-						if (key == followKeyDown.key && noteEvent.pressTimePos == followKeyDown.pressTimePos)
+					}
+				}
+
+				for (uint32 i = beginIndex; i < endIndex; ++i)
+				{
+					const auto& followKeyDown = m_noteEvents[i];
+
+					// 自分自身は無視
+					if (noteEvent.key == followKeyDown.key && noteEvent.pressTimePos == followKeyDown.pressTimePos)
+					{
+						continue;
+					}
+
+					const auto& followAudioKey = m_audioKeys[followKeyDown.key + 127];
+					const auto followAttackIndex = followAudioKey.getAttackIndex(followKeyDown.velocity, followKeyDown.pressTimePos, m_noteEvents);
+					if (followAttackIndex != -1)
+					{
+						const auto& followAttackKey = followAudioKey.getAttackKey(followAttackIndex);
+
+						if (attackKey.group() == followAttackKey.group())
 						{
-							continue;
+
 						}
 
-						const auto& followAudioKey = m_audioKeys[followKeyDown.key + 127];
-						const auto followAttackIndex = followAudioKey.getAttackIndex(followKeyDown.velocity, followKeyDown.pressTimePos, m_keyDownEvents);
-						if (followAttackIndex != -1)
-						{
-							const auto& followAttackKey = followAudioKey.getAttackKey(followAttackIndex);
+						//if (off_by == followAttackKey.group())
+						//{
+						//	noteEvent.disableTimePos = followKeyDown.pressTimePos;
+						//	break;
+						//}
+					}
+				}
+			}
+		}
 
-							if (off_by == followAttackKey.group())
-							{
-								noteEvent.disableTimePos = followKeyDown.pressTimePos;
-								break;
-							}
+		if (auto rangeOpt = pressEventIndexRange(noteEvent.pressTimePos, noteEvent.releaseTimePos))
+		{
+			const auto [beginIndex, endIndex] = rangeOpt.value();
+
+			// off_byによるノートオフ
+			const auto off_by = attackKey.offBy();
+			if (off_by != 0)
+			{
+				for (uint32 i = beginIndex; i < endIndex; ++i)
+				{
+					const auto& followKeyDown = m_noteEvents[i];
+
+					// 自分自身は無視
+					if (noteEvent.key == followKeyDown.key && noteEvent.pressTimePos == followKeyDown.pressTimePos)
+					{
+						continue;
+					}
+
+					const auto& followAudioKey = m_audioKeys[followKeyDown.key + 127];
+					const auto followAttackIndex = followAudioKey.getAttackIndex(followKeyDown.velocity, followKeyDown.pressTimePos, m_noteEvents);
+					if (followAttackIndex != -1)
+					{
+						const auto& followAttackKey = followAudioKey.getAttackKey(followAttackIndex);
+
+						if (off_by == followAttackKey.group())
+						{
+							noteEvent.disableTimePos = followKeyDown.pressTimePos;
+							break;
 						}
 					}
 				}
 			}
 		}
 	}
+}
+
+void Program::setEachKeyEvent()
+{
+
 }
 
 void Program::getSamples(float* left, float* right, int64 startPos, int64 sampleCount)
@@ -279,4 +348,61 @@ void Program::getSamples(float* left, float* right, int64 startPos, int64 sample
 const NoteEvent& Program::addEvent(uint8 key, uint8 velocity, int64 pressTimePos, int64 releaseTimePos, const Array<KeyDownEvent>& history)
 {
 	return m_audioKeys[key + 127].addEvent(velocity, pressTimePos, releaseTimePos, history);
+}
+
+// 戻り値：[beginIndex, endIndex)
+Optional<std::pair<uint32, uint32>> Program::pressEventIndexRange(int64 rangeBegin, int64 rangeEnd) const
+{
+	// 同時刻も有効範囲に含めたいので-1のupper_boundを取る
+	NoteEvent e0(rangeBegin - 1, 0, 0, 0);
+	auto beginIt = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), e0,
+		[](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
+
+	if (beginIt == m_noteEvents.end())
+	{
+		return none;
+	}
+
+	// todo: ノートオフ以降のoff_byは無視しているが、これで正しいのか？
+	NoteEvent e1(rangeEnd, 0, 0, 0);
+	auto nextEndIt = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), e1,
+		[](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
+
+	if (nextEndIt == m_noteEvents.begin())
+	{
+		return none;
+	}
+
+	const auto index0 = static_cast<uint32>(std::distance(m_noteEvents.begin(), beginIt));
+	const auto index1 = static_cast<uint32>(std::distance(m_noteEvents.begin(), nextEndIt));
+
+	return std::make_pair(index0, index1);
+}
+
+Optional<std::pair<uint32, uint32>> Program::bothEventIndexRange(int64 rangeBegin, int64 rangeEnd) const
+{
+	NoteEvent e0(0, rangeBegin - 1, 0, 0);
+	auto beginIt = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), e0,
+		[](const NoteEvent& a, const NoteEvent& b) { return a.releaseTimePos < b.releaseTimePos; });
+
+	if (beginIt == m_noteEvents.end())
+	{
+		return none;
+	}
+
+	// todo: ノートオフ以降のoff_byは無視しているが、これで正しいのか？
+	NoteEvent e1(rangeEnd, 0, 0, 0);
+	auto nextEndIt = std::upper_bound(m_noteEvents.begin(), m_noteEvents.end(), e1,
+		[](const NoteEvent& a, const NoteEvent& b) { return a.pressTimePos < b.pressTimePos; });
+
+	if (nextEndIt == m_noteEvents.begin())
+	{
+		return none;
+	}
+
+	const auto index0 = static_cast<uint32>(std::distance(m_noteEvents.begin(), beginIt));
+	const auto index1 = static_cast<uint32>(std::distance(m_noteEvents.begin(), nextEndIt));
+
+	return std::make_pair(index0, index1);
+
 }
