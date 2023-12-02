@@ -112,11 +112,20 @@ SamplePlayer::SamplePlayer(const Rect& area) :
 			switch (static_cast<libremidi::message_type>(message.get_message_type()))
 			{
 			case libremidi::message_type::NOTE_OFF:
-				m_key_data.push_back({ message.bytes[1], false });
+				m_keyData.push_back({ message.bytes[1], false });
 				break;
 			case libremidi::message_type::NOTE_ON:
-				m_key_data.push_back({ message.bytes[1], true });
+				m_keyData.push_back({ message.bytes[1], true });
 				break;
+			case libremidi::message_type::PITCH_BEND:
+			{
+				setReady(true);
+				//const uint8 m = message.bytes[1];
+				//const uint8 l = message.bytes[2];
+				//const uint16 value = ((l & 0x7F) << 7) + (m & 0x7F);
+				//const double t = (value / 8192.0 - 1.0);
+				break;
+			}
 			default:
 				break;
 			}
@@ -210,7 +219,7 @@ void SamplePlayer::loadSoundSet(FilePathView soundSetTomlPath)
 
 int SamplePlayer::octaveCount() const
 {
-	return m_octaveMax - m_octaveMin + 1;
+	return octaveMax() - octaveMin() + 1;
 }
 double SamplePlayer::octaveHeight() const
 {
@@ -225,18 +234,14 @@ double SamplePlayer::octaveWidth() const
 {
 	return m_area.w / octaveCount();
 }
-double SamplePlayer::unitWidth() const
-{
-	return octaveWidth() / 12.0;
-}
 
-int SamplePlayer::keyMin() const
+int SamplePlayer::octaveMin() const
 {
-	return (m_octaveMin + 1) * 12;
+	return m_keyMin / 12;
 }
-int SamplePlayer::keyMax() const
+int SamplePlayer::octaveMax() const
 {
-	return (m_octaveMax + 1) * 12 + 11;
+	return (m_keyMax - 11) / 12;
 }
 
 RectF SamplePlayer::getRect(int octaveIndex, int noteIndex, bool isWhiteKey) const
@@ -248,21 +253,8 @@ RectF SamplePlayer::getRect(int octaveIndex, int noteIndex, bool isWhiteKey) con
 	return RectF(m_area.x, noteBottomY - noteHeight, m_area.w * (isWhiteKey ? 1. : 2. / 3.), noteHeight);
 }
 
-RectF SamplePlayer::getHorizontalRect(int octaveIndex, int noteIndex, bool isWhiteKey) const
-{
-	const double octaveLeftX = m_area.x + octaveWidth() * octaveIndex;
-	const double noteLeftX = octaveLeftX + unitWidth() * ys[noteIndex];
-	const double noteWidth = unitWidth() * hs[noteIndex];
-
-	return RectF(noteLeftX, m_area.y, noteWidth, m_area.h * (isWhiteKey ? 1. : 2. / 3.));
-}
-
 void SamplePlayer::drawVertical(const PianoRoll& pianoroll, const Optional<MidiData>& midiDataOpt) const
 {
-	const int octaveMin = m_octaveMin + 1;
-	//const int octaveMax = m_octaveMax + 1;
-
-	//const double currentTick = pianoroll.currentTick();
 	const double currentSeconds = pianoroll.currentSeconds();
 
 	HashTable<int, std::pair<double, int>> pressedKeyTick;
@@ -290,7 +282,7 @@ void SamplePlayer::drawVertical(const PianoRoll& pianoroll, const Optional<MidiD
 	const Color blackKeyColor = Color(20, 19, 18);
 	const Color frameColor = blackKeyColor;
 
-	for (int key = keyMin(); key <= keyMax(); ++key)
+	for (int key = m_keyMin; key <= m_keyMax; ++key)
 	{
 		const int octaveAbs = static_cast<int>(floor(key / 12.0));
 		const int noteIndex = key - octaveAbs * 12;
@@ -299,23 +291,25 @@ void SamplePlayer::drawVertical(const PianoRoll& pianoroll, const Optional<MidiD
 			continue;
 		}
 
-		const int octaveIndex = octaveAbs - octaveMin;
+		const int octaveIndex = octaveAbs - octaveMin();
 		const auto rect = getRect(octaveIndex, noteIndex, true);
 
 		rect.draw(whiteKeyColor);
-		auto itKey = pressedKeyTick.find(key);
-		if (itKey != pressedKeyTick.end())
 		{
-			const auto [pressSeconds, trackIndex] = itKey->second;
-			const double t = GetAnimationValue(pressSeconds);
-			
-			const double hue = 360.0 * trackIndex / 16.0;
-			ColorF color00 = HSV(hue, 0.6, 0.92);
-			ColorF color01 = HSV(hue, 0.81, 0.84);
-			ColorF color0 = color00.lerp(color01, t);
-			ColorF color1 = Color(180, 180, 180);
-			ColorF blendColor(Math::Saturate(color0.toVec4() / (Vec4::One() - color1.toVec4() * Min(0.999, t))).xyz());
-			rect.draw(blendColor);
+			auto itKey = pressedKeyTick.find(key);
+			if (itKey != pressedKeyTick.end())
+			{
+				const auto [pressSeconds, trackIndex] = itKey->second;
+				const double t = GetAnimationValue(pressSeconds);
+
+				const double hue = 360.0 * trackIndex / 16.0;
+				ColorF color00 = HSV(hue, 0.6, 0.92);
+				ColorF color01 = HSV(hue, 0.81, 0.84);
+				ColorF color0 = color00.lerp(color01, t);
+				ColorF color1 = Color(180, 180, 180);
+				ColorF blendColor(Math::Saturate(color0.toVec4() / (Vec4::One() - color1.toVec4() * Min(0.999, t))).xyz());
+				rect.draw(blendColor);
+			}
 		}
 
 		rect.drawFrame(1, frameColor);
@@ -326,7 +320,7 @@ void SamplePlayer::drawVertical(const PianoRoll& pianoroll, const Optional<MidiD
 		}
 	}
 
-	for (int key = keyMin(); key <= keyMax(); ++key)
+	for (int key = m_keyMin; key <= m_keyMax; ++key)
 	{
 		const int octaveAbs = static_cast<int>(floor(key / 12.0));
 		const int noteIndex = key - octaveAbs * 12;
@@ -335,36 +329,38 @@ void SamplePlayer::drawVertical(const PianoRoll& pianoroll, const Optional<MidiD
 			continue;
 		}
 
-		const int octaveIndex = octaveAbs - octaveMin;
+		const int octaveIndex = octaveAbs - octaveMin();
 		const auto rect = getRect(octaveIndex, noteIndex, false);
 
 		rect.draw(blackKeyColor);
-		auto itKey = pressedKeyTick.find(key);
-		if (itKey != pressedKeyTick.end())
 		{
-			const auto [pressSeconds, trackIndex] = itKey->second;
-			const double t = GetAnimationValue(pressSeconds);
+			auto itKey = pressedKeyTick.find(key);
+			if (itKey != pressedKeyTick.end())
+			{
+				const auto [pressSeconds, trackIndex] = itKey->second;
+				const double t = GetAnimationValue(pressSeconds);
 
-			const double hue = 360.0 * trackIndex / 16.0;
-			ColorF color00 = HSV(hue, 0.6, 0.92);
-			ColorF color01 = HSV(hue, 0.81, 0.84);
-			ColorF color0 = color00.lerp(color01, t);
-			ColorF color1 = Color(180, 180, 180);
-			ColorF blendColor(Math::Saturate(color0.toVec4() / (Vec4::One() - color1.toVec4() * Min(0.999, t))).xyz());
-			rect.draw(blendColor);
+				const double hue = 360.0 * trackIndex / 16.0;
+				ColorF color00 = HSV(hue, 0.6, 0.92);
+				ColorF color01 = HSV(hue, 0.81, 0.84);
+				ColorF color0 = color00.lerp(color01, t);
+				ColorF color1 = Color(180, 180, 180);
+				ColorF blendColor(Math::Saturate(color0.toVec4() / (Vec4::One() - color1.toVec4() * Min(0.999, t))).xyz());
+				rect.draw(blendColor);
+			}
 		}
+		
 
 		rect.drawFrame(1, frameColor);
 	}
 }
 
-void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const Optional<MidiData>& midiDataOpt) const
+void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const Optional<MidiData>& midiDataOpt, bool isDebug) const
 {
-	const int octaveMin = m_octaveMin + 1;
-	//const int octaveMax = m_octaveMax + 1;
-
-	//const double currentTick = pianoroll.currentTick();
 	const double currentSeconds = pianoroll.currentSeconds();
+	double checkTime = 0.4;
+	double goodTime = 0.2;
+	double perfectTime = 0.1;
 
 	HashTable<int, std::pair<double, int>> pressedKeyTick;
 	if (midiDataOpt)
@@ -377,11 +373,50 @@ void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const Optional<Mid
 				continue;
 			}
 
-			for (const auto& note : track.notes())
+			if (i == m_activeTrack)
 			{
-				if (note.beginSec <= currentSeconds && currentSeconds < note.endSec)
+				for (const auto& note : track.notes())
 				{
-					pressedKeyTick[note.key] = std::make_pair(currentSeconds - note.beginSec, static_cast<int>(i));
+					if (m_keyState[note.key].keyDownCount == 1 && m_noteGrade[&note] == NoteGrade::Undetermined)
+					{
+						if (note.beginSec - checkTime <= currentSeconds && currentSeconds < note.beginSec + checkTime)
+						{
+							if (note.beginSec - perfectTime <= currentSeconds && currentSeconds < note.beginSec + perfectTime)
+							{
+								m_noteGrade[&note] = NoteGrade::Perfect;
+								m_keyState[note.key].noteGrade = NoteGrade::Perfect;
+							}
+							else if (note.beginSec - goodTime <= currentSeconds && currentSeconds < note.beginSec + goodTime)
+							{
+								m_noteGrade[&note] = NoteGrade::Good;
+								m_keyState[note.key].noteGrade = NoteGrade::Good;
+							}
+							else
+							{
+								m_noteGrade[&note] = NoteGrade::Bad;
+								m_keyState[note.key].noteGrade = NoteGrade::Bad;
+							}
+
+							m_keyState[note.key].keyEffectWatch.start();
+						}
+					}
+					else if (m_noteGrade[&note] == NoteGrade::Undetermined && note.beginSec + checkTime < currentSeconds)
+					{
+						m_noteGrade[&note] = NoteGrade::Miss;
+						m_keyState[note.key].noteGrade = NoteGrade::Miss;
+						m_keyState[note.key].keyEffectWatch.start();
+					}
+				}
+
+			}
+			else
+			{
+				for (const auto& note : track.notes())
+				{
+					if (note.beginSec <= currentSeconds && currentSeconds < note.endSec)
+					{
+						pressedKeyTick[note.key] = std::make_pair(currentSeconds - note.beginSec, static_cast<int>(i));
+					}
 				}
 			}
 		}
@@ -391,7 +426,24 @@ void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const Optional<Mid
 	const Color blackKeyColor = Color(20, 19, 18);
 	const Color frameColor = blackKeyColor;
 
-	for (int key = keyMin(); key <= keyMax(); ++key)
+	size_t whiteKeyCount = 0;
+	for (int key = m_keyMin; key <= m_keyMax; ++key)
+	{
+		const int octaveAbs = static_cast<int>(floor(key / 12.0));
+		const int noteIndex = key - octaveAbs * 12;
+		if (whiteIndices.contains(noteIndex))
+		{
+			++whiteKeyCount;
+		}
+	}
+
+	const double effectTime = 0.3;
+
+	const double unitWidth = m_area.w / whiteKeyCount;
+	const double blackUnitWidth = unitWidth * 7.0 / 12.0;
+
+	double x = m_area.x;
+	for (int key = m_keyMin, i = 0; key <= m_keyMax; ++key, ++i)
 	{
 		const int octaveAbs = static_cast<int>(floor(key / 12.0));
 		const int noteIndex = key - octaveAbs * 12;
@@ -400,39 +452,88 @@ void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const Optional<Mid
 			continue;
 		}
 
-		const int octaveIndex = octaveAbs - octaveMin;
-		const auto rect = getHorizontalRect(octaveIndex, noteIndex, true);
+		const RectF rect(x, m_area.y, unitWidth, m_area.h);
+		const auto whiteSmallRect = RectF(m_area.x + blackUnitWidth * i, m_area.y, blackUnitWidth, m_area.h * m_blackHeight).stretched(blackUnitWidth * m_stretch, 0);
 
 		rect.draw(whiteKeyColor);
-		auto itKey = pressedKeyTick.find(key);
-		if (itKey != pressedKeyTick.end())
 		{
-			const auto [pressSeconds, trackIndex] = itKey->second;
-			const double t = GetAnimationValue(pressSeconds);
+			auto itKey = pressedKeyTick.find(key);
+			const bool isNoteOn = itKey != pressedKeyTick.end();
+			const bool isPressed = static_cast<bool>(1 <= m_keyState[key].keyDownCount);
 
-			const double hue = 360.0 * trackIndex / 16.0;
-			ColorF color00 = HSV(hue, 0.6, 0.92);
-			ColorF color01 = HSV(hue, 0.81, 0.84);
-			ColorF color0 = color00.lerp(color01, t);
-			ColorF color1 = Color(180, 180, 180);
-			ColorF blendColor(Math::Saturate(color0.toVec4() / (Vec4::One() - color1.toVec4() * Min(0.999, t))).xyz());
-			rect.draw(blendColor);
-		}
+			auto& keyState = m_keyState[key];
 
-		if (m_key_on[key] == 1)
-		{
-			rect.draw(Palette::Yellow);
+			if (1 <= m_keyState[key].keyDownCount)
+			{
+				rect.draw(Palette::Cyan);
+			}
+
+			if (keyState.keyEffectWatch.isRunning())
+			{
+				if (effectTime < keyState.keyEffectWatch.sF())
+				{
+					keyState.keyEffectWatch.reset();
+				}
+				else
+				{
+					const double t = EaseInCirc(1.0 - keyState.keyEffectWatch.sF() / effectTime);
+					
+					const auto fontPos = whiteSmallRect.topCenter() + Vec2(0, -30 + 10 * (1.0 - t));
+
+					switch (keyState.noteGrade)
+					{
+					case NoteGrade::Perfect:
+						m_gradeFont(U"Perfect").drawAt(fontPos + Vec2(1, 1), Palette::Black);
+						m_gradeFont(U"Perfect").drawAt(fontPos, Palette::Orange);
+						break;
+					case NoteGrade::Good:
+						m_gradeFont(U"Good").drawAt(fontPos + Vec2(1, 1), Palette::Black);
+						m_gradeFont(U"Good").drawAt(fontPos, Palette::Blue);
+						break;
+					case NoteGrade::Bad:
+						m_gradeFont(U"Bad").drawAt(fontPos + Vec2(1, 1), Palette::Black);
+						m_gradeFont(U"Bad").drawAt(fontPos, Palette::Purple);
+						break;
+					case NoteGrade::Miss:
+						m_gradeFont(U"Miss").drawAt(fontPos + Vec2(1, 1), Palette::Black);
+						m_gradeFont(U"Miss").drawAt(fontPos, Palette::Brown);
+						break;
+					default:
+						break;
+					}
+				}
+			}
+
+			if (itKey != pressedKeyTick.end())
+			{
+				const auto [pressSeconds, trackIndex] = itKey->second;
+				const double t = GetAnimationValue(pressSeconds);
+
+				const double hue = 360.0 * trackIndex / 16.0;
+				ColorF color00 = HSV(hue, 0.6, 0.92);
+				ColorF color01 = HSV(hue, 0.81, 0.84);
+				ColorF color0 = color00.lerp(color01, t);
+				ColorF color1 = Color(180, 180, 180);
+				ColorF blendColor(Math::Saturate(color0.toVec4() / (Vec4::One() - color1.toVec4() * Min(0.999, t))).xyz());
+				rect.draw(blendColor);
+			}
 		}
 
 		rect.drawFrame(1, frameColor);
+
+		if (isDebug)
+		{
+			Line(rect.topCenter(), rect.bottomCenter()).draw(1.0, Palette::Orange);
+		}
 
 		if (noteIndex == 0)
 		{
 			m_font(noteNames[noteIndex], octaveAbs - 1, U" ").draw(Arg::bottomRight = rect.br(), Palette::Black);
 		}
+		x += unitWidth;
 	}
 
-	for (int key = keyMin(); key <= keyMax(); ++key)
+	for (int key = m_keyMin, i = 0; key <= m_keyMax; ++key, ++i)
 	{
 		const int octaveAbs = static_cast<int>(floor(key / 12.0));
 		const int noteIndex = key - octaveAbs * 12;
@@ -441,32 +542,79 @@ void SamplePlayer::drawHorizontal(const PianoRoll& pianoroll, const Optional<Mid
 			continue;
 		}
 
-		const int octaveIndex = octaveAbs - octaveMin;
-		const auto rect = getHorizontalRect(octaveIndex, noteIndex, false);
+		const auto rect = RectF(m_area.x + blackUnitWidth * i, m_area.y, blackUnitWidth, m_area.h * m_blackHeight).stretched(blackUnitWidth * m_stretch, 0);
 
 		rect.draw(blackKeyColor);
-		auto itKey = pressedKeyTick.find(key);
-		if (itKey != pressedKeyTick.end())
+
 		{
-			const auto [pressSeconds, trackIndex] = itKey->second;
-			const double t = GetAnimationValue(pressSeconds);
+			auto itKey = pressedKeyTick.find(key);
+			if (itKey != pressedKeyTick.end())
+			{
+				const auto [pressSeconds, trackIndex] = itKey->second;
+				const double t = GetAnimationValue(pressSeconds);
 
-			const double hue = 360.0 * trackIndex / 16.0;
-			ColorF color00 = HSV(hue, 0.6, 0.92);
-			ColorF color01 = HSV(hue, 0.81, 0.84);
-			ColorF color0 = color00.lerp(color01, t);
-			ColorF color1 = Color(180, 180, 180);
-			ColorF blendColor(Math::Saturate(color0.toVec4() / (Vec4::One() - color1.toVec4() * Min(0.999, t))).xyz());
+				const double hue = 360.0 * trackIndex / 16.0;
+				ColorF color00 = HSV(hue, 0.6, 0.92);
+				ColorF color01 = HSV(hue, 0.81, 0.84);
+				ColorF color0 = color00.lerp(color01, t);
+				ColorF color1 = Color(180, 180, 180);
+				ColorF blendColor(Math::Saturate(color0.toVec4() / (Vec4::One() - color1.toVec4() * Min(0.999, t))).xyz());
 
-			rect.draw(blendColor);
+				rect.draw(blendColor);
+			}
 		}
 
-		if (m_key_on[key] == 1)
+		if (1 <= m_keyState[key].keyDownCount)
 		{
-			rect.draw(Palette::Yellow);
+			rect.draw(Palette::Cyan);
 		}
 
-		rect.drawFrame(1, frameColor);
+		auto& keyState = m_keyState[key];
+		if (keyState.keyEffectWatch.isRunning())
+		{
+			if (effectTime < keyState.keyEffectWatch.sF())
+			{
+				keyState.keyEffectWatch.reset();
+			}
+			else
+			{
+				const double t = EaseInCirc(1.0 - keyState.keyEffectWatch.sF() / effectTime);
+
+				const auto fontPos = rect.topCenter() + Vec2(0, -30 + 10 * (1.0 - t));
+
+				switch (keyState.noteGrade)
+				{
+				case NoteGrade::Perfect:
+					m_gradeFont(U"Perfect").drawAt(fontPos + Vec2(1, 1), Palette::Black);
+					m_gradeFont(U"Perfect").drawAt(fontPos, Palette::Orange);
+					break;
+				case NoteGrade::Good:
+					m_gradeFont(U"Good").drawAt(fontPos + Vec2(1, 1), Palette::Black);
+					m_gradeFont(U"Good").drawAt(fontPos, Palette::Blue);
+					break;
+				case NoteGrade::Bad:
+					m_gradeFont(U"Bad").drawAt(fontPos + Vec2(1, 1), Palette::Black);
+					m_gradeFont(U"Bad").drawAt(fontPos, Palette::Purple);
+					break;
+				case NoteGrade::Miss:
+					m_gradeFont(U"Miss").drawAt(fontPos + Vec2(1, 1), Palette::Black);
+					m_gradeFont(U"Miss").drawAt(fontPos, Palette::Brown);
+					break;
+				default:
+					break;
+				}
+			}
+		}
+
+		if (isDebug)
+		{
+			rect.drawFrame(1, Palette::Cyan);
+		}
+	}
+
+	if (isDebug)
+	{
+		m_area.drawFrame(2, Palette::Orange);
 	}
 }
 
@@ -525,6 +673,15 @@ Array<std::pair<uint8, NoteEvent>> SamplePlayer::loadMidiData(const MidiData& mi
 		program.calculateOffTime();
 	}
 
+	m_noteGrade.clear();
+	for (const auto& track : midiData.notes())
+	{
+		for (const auto& note : track.notes())
+		{
+			m_noteGrade[&note] = NoteGrade::Undetermined;
+		}
+	}
+	
 	return results;
 }
 
@@ -567,14 +724,50 @@ Program* SamplePlayer::refProgram(const TrackData& trackData)
 
 void SamplePlayer::updateInput()
 {
-	m_mutex.lock();
-	if (!m_key_data.empty())
+	if (KeyShift.pressed())
 	{
-		const auto& note = m_key_data.front();
+		if (KeyLeft.down())
+		{
+			m_blackHeight -= 0.01;
+		}
+		if (KeyRight.down())
+		{
+			m_blackHeight += 0.01;
+		}
+	}
+	else
+	{
+		if (KeyLeft.down())
+		{
+			m_stretch -= 0.01;
+		}
+		if (KeyRight.down())
+		{
+			m_stretch += 0.01;
+		}
+	}
 
-		m_key_on[note.key] = note.note_on ? 1 : 0;
+	for (auto& keyState : m_keyState)
+	{
+		if (1 <= keyState.keyDownCount)
+		{
+			++keyState.keyDownCount;
+		}
+	}
 
-		m_key_data.pop_front();
+	m_mutex.lock();
+	if (!m_keyData.empty())
+	{
+		const auto& note = m_keyData.front();
+
+		m_keyState[note.key].keyDownCount = note.note_on ? 1 : 0;
+
+		m_keyData.pop_front();
 	}
 	m_mutex.unlock();
+}
+
+void SamplePlayer::setArea(const Rect& area)
+{
+	m_area = area;
 }

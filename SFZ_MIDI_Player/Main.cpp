@@ -11,13 +11,84 @@
 #include <AudioStreamRenderer.hpp>
 #include <Program.hpp>
 
+// https://zenn.dev/link/comments/8af1a8f60deaa1 からコピー
+class MicrophonePlayer : public IAudioStream
+{
+public:
+
+	explicit MicrophonePlayer(Microphone&& microphone)
+		: m_microphone{ std::move(microphone) }
+		, m_sampleRate{ m_microphone.getSampleRate() }
+		, m_delaySamples{ static_cast<uint32>(m_sampleRate * 0.05) }
+		, m_bufferLength{ m_microphone.getBufferLength() } {}
+
+private:
+
+	Microphone m_microphone;
+
+	uint32 m_sampleRate = Wave::DefaultSampleRate;
+
+	uint32 m_delaySamples = 0;
+
+	size_t m_bufferLength = 0;
+
+	size_t m_readPos = 0;
+
+	bool m_initialized = false;
+
+	void getAudio(float* left, float* right, const size_t samplesToWrite) override
+	{
+		if (not m_initialized)
+		{
+			// 録音が始まっていない場合は無視
+			if (m_microphone.posSample() == 0)
+			{
+				return;
+			}
+
+			// 現在の録音サンプル位置から m_delaySamples サンプルだけ引いた位置を読み取り開始位置に
+			m_readPos = (m_microphone.posSample() + (m_bufferLength - m_delaySamples)) % m_bufferLength;
+
+			m_initialized = true;
+		}
+
+		const size_t tailLength = Min((m_bufferLength - m_readPos), samplesToWrite);
+		const size_t headLength = (samplesToWrite - tailLength);
+		const Wave& wave = m_microphone.getBuffer();
+
+		for (size_t i = 0; i < tailLength; ++i)
+		{
+			const auto& sample = wave[m_readPos + i];
+			*left++ = sample.left;
+			*right++ = sample.right;
+		}
+
+		for (size_t i = 0; i < headLength; ++i)
+		{
+			const auto& sample = wave[i];
+			*left++ = sample.left;
+			*right++ = sample.right;
+		}
+
+		m_readPos = ((m_readPos + samplesToWrite) % m_bufferLength);
+	}
+
+	bool hasEnded() override
+	{
+		return false;
+	}
+
+	void rewind() override {}
+};
+
 #ifndef DEBUG_MODE
 
 void Main()
 {
-
+	double yRate = 0.8025;
 #ifdef LAYOUT_HORIZONTAL
 	Window::Resize(1280, 720);
+	Scene::Resize(3840, 2160);
 	const auto [pianorollArea, keyboardArea] = SplitUpDown(Scene::Rect(), 0.8);
 #else
 	Window::Resize(1280, 1280);
@@ -28,6 +99,8 @@ void Main()
 	int32 debugDraw = MemoryPool::Size;
 	Console << U"";
 #endif
+
+	Scene::SetBackground(Palette::Black);
 
 	MemoryPool::i(MemoryPool::ReadFile).setCapacity(16ull << 20);
 	MemoryPool::i(MemoryPool::RenderAudio).setCapacity(4ull << 20);
@@ -70,8 +143,82 @@ void Main()
 
 	std::thread audioRenderThread(renderUpdate);
 
+	bool isFullScreen = false;
+	double leftPadding = -0.15;
+	double rightPadding = -0.1375;
+	bool isDebug = false;
+
+	std::shared_ptr<MicrophonePlayer> micStream;
+	uint32 sampleRate = Wave::DefaultSampleRate;
+	{
+		Microphone mic{ 5s, Loop::Yes, StartImmediately::Yes };
+
+		if (not mic.isRecording())
+		{
+			throw Error{ U"Failed to start recording" };
+		}
+
+		sampleRate = mic.getSampleRate();
+		micStream = std::make_shared<MicrophonePlayer>(std::move(mic));
+	}
+
+	Audio micaudio{ micStream, Arg::sampleRate = sampleRate };
+	micaudio.play();
+
 	while (System::Update())
 	{
+		Window::SetTitle(U"yRate: {:.5f}, stretch: {:.5f}, blackHeight: {:.5f}, left: {:.5f}, right: {:.5f}"_fmt(yRate, player.stretch(), player.blackHeight(), leftPadding, rightPadding));
+		if (KeyR.down())
+		{
+			isDebug = !isDebug;
+		}
+
+		bool updateScne = false;
+		if (KeyF.down())
+		{
+			isFullScreen = !isFullScreen;
+			Window::SetFullscreen(isFullScreen);
+			updateScne = true;
+		}
+		if (KeyUp.down())
+		{
+			yRate -= 0.0025;
+			updateScne = true;
+		}
+		if (KeyDown.down())
+		{
+			yRate += 0.0025;
+			updateScne = true;
+		}
+		if (KeyZ.down())
+		{
+			leftPadding += 0.0025;
+			updateScne = true;
+		}
+		if (KeyX.down())
+		{
+			leftPadding -= 0.0025;
+			updateScne = true;
+		}
+		if (KeyN.down())
+		{
+			rightPadding -= 0.0025;
+			updateScne = true;
+		}
+		if (KeyM.down())
+		{
+			rightPadding += 0.0025;
+			updateScne = true;
+		}
+
+		if (updateScne)
+		{
+			const double sceneWidth = Scene::Rect().w;
+			const auto sceneRect = Scene::Rect().stretched(0, sceneWidth * rightPadding, 0, sceneWidth * leftPadding);
+			const auto [pianorollArea, keyboardArea] = SplitUpDown(sceneRect, yRate);
+			player.setArea(keyboardArea);
+			pianoRoll.setArea(pianorollArea);
+		}
 
 #ifdef DEVELOPMENT
 		if (KeyD.down())
@@ -144,7 +291,7 @@ void Main()
 			}
 		}
 
-		if (KeyHome.down())
+		if (KeyHome.down() || player.isReady())
 		{
 			audio.pause();
 			audioStream->reset();
@@ -154,6 +301,9 @@ void Main()
 
 			pianoRoll.playRestart();
 			audio.play();
+
+			player.setReady(false);
+			player.reload();
 		}
 
 		if (midiData)
@@ -164,7 +314,7 @@ void Main()
 
 #ifdef LAYOUT_HORIZONTAL
 		pianoRoll.drawHorizontal(player.keyMin(), player.keyMax(), midiData);
-		player.drawHorizontal(pianoRoll, midiData);
+		player.drawHorizontal(pianoRoll, midiData, isDebug);
 #else
 		pianoRoll.drawVertical(player.keyMin(), player.keyMax(), midiData);
 		player.drawVertical(pianoRoll, midiData);
@@ -182,6 +332,8 @@ void Main()
 #endif
 
 	}
+
+	player.finish();
 
 	AudioStreamRenderer::i().finish();
 	audioRenderThread.join();

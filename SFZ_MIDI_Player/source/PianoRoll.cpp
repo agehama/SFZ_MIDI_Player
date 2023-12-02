@@ -99,7 +99,21 @@ void PianoRoll::drawVertical(int keyMin, int keyMax, const Optional<MidiData>& m
 void PianoRoll::drawHorizontal(int keyMin, int keyMax, const Optional<MidiData>& midiDataOpt) const
 {
 	const double leftX = m_area.x;
-	const double unitWidth = m_area.w / (keyMax - keyMin + 1);
+	//const double unitWidth = m_area.w / (keyMax - keyMin + 1);
+
+	size_t whiteKeyCount = 0;
+	const std::set<int> whiteIndices = { 0,2,4,5,7,9,11 };
+	for (int key = keyMin; key <= keyMax; ++key)
+	{
+		const int octaveAbs = static_cast<int>(floor(key / 12.0));
+		const int noteIndex = key - octaveAbs * 12;
+		if (whiteIndices.contains(noteIndex))
+		{
+			++whiteKeyCount;
+		}
+	}
+
+	const double unitWidth = (m_area.w / whiteKeyCount) * 7.0 / 12.0;
 
 	const Color bgColor(19, 19, 22);
 	const Color measureLineColor(214, 214, 214);
@@ -160,6 +174,7 @@ void PianoRoll::drawHorizontal(int keyMin, int keyMax, const Optional<MidiData>&
 		{
 			const HSV hsv(360.0 * i / 16.0, 0.5, 0.53);
 			const HSV darker(hsv.h, hsv.s, hsv.v * 0.5);
+			const HSV darker2(hsv.h, hsv.s, hsv.v * 0.1);
 
 			if (track.isPercussionTrack())
 			{
@@ -176,8 +191,15 @@ void PianoRoll::drawHorizontal(int keyMin, int keyMax, const Optional<MidiData>&
 					continue;
 				}
 
+				if (note.key < keyMin || keyMax < note.key)
+				{
+					continue;
+				}
+
 				const double y0 = Math::Map(beginTick, bottomTick, topTick, m_area.y + m_area.h, m_area.y);
 				const double y1 = Math::Map(endTick, bottomTick, topTick, m_area.y + m_area.h, m_area.y);
+
+				const bool isWhiteKey = whiteIndices.contains(note.key % 12);
 
 				//const int octaveAbs = static_cast<int>(floor(note.key / 12.0));
 				//const int noteIndex = note.key - octaveAbs * 12;
@@ -185,8 +207,17 @@ void PianoRoll::drawHorizontal(int keyMin, int keyMax, const Optional<MidiData>&
 				const double currentX = leftX + unitWidth * keyIndex;
 
 				const RectF rect(currentX, y1, unitWidth, y0 - y1);
-				rect.draw(hsv);
-				rect.drawFrame(2, darker);
+
+				if (isWhiteKey)
+				{
+					rect.draw(hsv);
+					rect.drawFrame(2, darker);
+				}
+				else
+				{
+					rect.draw(darker2);
+					rect.drawFrame(3.0, 2, hsv);
+				}
 			}
 		}
 	}
@@ -222,4 +253,9 @@ void PianoRoll::progress(size_t sampleCount)
 	{
 		m_currentTime += 1.0 * sampleCount / Wave::DefaultSampleRate;
 	}
+}
+
+void PianoRoll::setArea(const Rect& area)
+{
+	m_area = area;
 }

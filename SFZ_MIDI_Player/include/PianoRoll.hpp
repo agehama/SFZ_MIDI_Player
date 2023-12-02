@@ -35,6 +35,8 @@ public:
 
 	int64 currentPosSample() const { return static_cast<int64>(currentSeconds() * Wave::DefaultSampleRate); }
 
+	void setArea(const Rect& area);
+
 private:
 	std::atomic<bool> mIsPlaying = false;
 	std::atomic<double> m_currentTime = 0.0f;
